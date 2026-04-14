@@ -1,0 +1,1865 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MTG Commander Deck Optimizer</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600&family=Crimson+Pro:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --gold:#c9a84c;--gold2:#e8c97a;
+  --bg:#f7f4ef;--bg2:#eeeae2;--bg3:#e4dfd4;
+  --card:#fff;--border:#d8d0bc;--border2:#c0b89c;
+  --text:#1c1508;--text2:#5a4e38;--text3:#8a7a5a;
+  --blue:#1a4a8a;--red:#8a2020;--green:#1a5a2a;--black:#1a1a1a;--white:#f9f6e8;
+  --info:#185fa5;--infobg:#ddeeff;
+  --warn:#854f0b;--warnbg:#faeeda;
+  --danger:#a32d2d;--dangerbg:#fde8e8;
+  --success:#0f6e56;--successbg:#e1f5ee;
+  --radius:10px;--radius-sm:6px;
+  --shadow:0 2px 12px rgba(0,0,0,.08);
+}
+@media(prefers-color-scheme:dark){
+  :root{
+    --bg:#17140e;--bg2:#201c14;--bg3:#28231a;
+    --card:#201c14;--border:#3a3320;--border2:#4a4228;
+    --text:#e8dfc8;--text2:#a89870;--text3:#6a5a3a;
+    --infobg:#0c2540;--info:#7ab8f0;
+    --warnbg:#2a1a04;--warn:#e8a84c;
+    --dangerbg:#2a0c0c;--danger:#f07070;
+    --successbg:#042218;--success:#4acca0;
+  }
+}
+body{background:var(--bg);color:var(--text);font-family:'Crimson Pro',Georgia,serif;min-height:100vh}
+
+/* LAYOUT */
+.app{max-width:1100px;margin:0 auto;padding:1.5rem 1rem}
+.header{text-align:center;padding:1.5rem 0 1.25rem;border-bottom:1px solid var(--border);margin-bottom:1.5rem}
+.title{font-family:'Cinzel',serif;font-size:24px;font-weight:600;letter-spacing:.06em;color:var(--text)}
+.subtitle{font-size:13px;color:var(--text3);margin-top:4px}
+.color-pips{display:flex;gap:7px;justify-content:center;margin-top:12px}
+.pip{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;cursor:pointer;border:2px solid transparent;transition:all .15s;user-select:none;font-family:'Cinzel',serif}
+.pip:hover{transform:scale(1.12)}
+.pip.on{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold)}
+.pip-W{background:#f9f6e8;color:#7a6a2a}.pip-U{background:#1a4a8a;color:#a8d0ff}
+.pip-B{background:#222;color:#c0a0c0}.pip-R{background:#8a2020;color:#ffb090}
+.pip-G{background:#1a5a2a;color:#90d0a0}
+
+/* PANELS */
+.panel{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem;margin-bottom:1rem;box-shadow:var(--shadow)}
+.panel-title{font-family:'Cinzel',serif;font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:12px}
+
+/* GRID */
+.two-col{display:grid;grid-template-columns:320px 1fr;gap:1rem;align-items:start}
+@media(max-width:700px){.two-col{grid-template-columns:1fr}}
+
+/* FORM */
+textarea{width:100%;min-height:200px;font-family:'Crimson Pro',monospace;font-size:14px;line-height:1.65;resize:vertical;background:var(--bg2);color:var(--text);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;transition:border .15s}
+textarea:focus{outline:none;border-color:var(--gold)}
+.hint{font-size:11.5px;color:var(--text3);margin-top:6px;line-height:1.5}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:10px 18px;font-family:'Cinzel',serif;font-size:13px;font-weight:500;letter-spacing:.04em;background:var(--bg2);color:var(--text);border:1px solid var(--border2);border-radius:var(--radius-sm);cursor:pointer;transition:all .15s;white-space:nowrap}
+.btn:hover{background:var(--bg3);border-color:var(--gold)}
+.btn:active{transform:scale(.98)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-block{display:flex;width:100%;margin-top:.75rem}
+.btn-primary{background:var(--bg3);border-color:var(--gold)}
+.btn-sm{padding:5px 10px;font-size:11px}
+
+/* PROGRESS */
+.prog-wrap{padding:.5rem 0}
+.prog-bar{height:3px;background:var(--bg3);border-radius:2px;overflow:hidden;margin-bottom:6px}
+.prog-fill{height:100%;background:var(--gold);border-radius:2px;transition:width .3s}
+.prog-lbl{font-size:12px;color:var(--text3);text-align:center}
+
+/* STATS */
+.stats-row{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-bottom:1rem}
+.stat{background:var(--bg2);border-radius:var(--radius-sm);padding:10px 8px;text-align:center}
+.stat-v{font-family:'Cinzel',serif;font-size:20px;font-weight:600;color:var(--text)}
+.stat-l{font-size:10px;color:var(--text3);margin-top:2px;letter-spacing:.03em}
+
+/* TABS */
+.tabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:1rem;overflow-x:auto}
+.tab{padding:8px 14px;font-family:'Cinzel',serif;font-size:11px;letter-spacing:.05em;color:var(--text3);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap;background:none;border-top:none;border-left:none;border-right:none;transition:color .15s}
+.tab:hover{color:var(--text2)}
+.tab.on{color:var(--text);border-bottom-color:var(--gold)}
+.tp{display:none}.tp.on{display:block}
+
+/* MANA CURVE */
+.curve-wrap{margin-top:.5rem}
+.curve-bars{display:flex;align-items:flex-end;gap:5px;height:90px}
+.cc{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px}
+.cb{width:100%;border-radius:3px 3px 0 0;transition:height .5s}
+.cbn{font-size:10px;color:var(--text3)}
+.cx{display:flex;gap:5px;margin-top:5px}
+.cxl{flex:1;text-align:center;font-size:10px;color:var(--text3)}
+
+/* TYPE BAR */
+.type-chips{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px}
+.chip{display:flex;align-items:center;gap:4px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:3px 9px;font-size:12px;color:var(--text2)}
+.dot{width:8px;height:8px;border-radius:2px;flex-shrink:0}
+.type-bar{width:100%;height:14px;border-radius:7px;overflow:hidden;background:var(--bg3);display:flex;margin-top:8px}
+.type-seg{height:100%}
+
+/* CARD LIST */
+.card-list{list-style:none;max-height:440px;overflow-y:auto}
+.card-item{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s;border-radius:4px}
+.card-item:last-child{border-bottom:none}
+.card-item:hover{background:var(--bg2)}
+.card-thumb{width:28px;height:39px;border-radius:3px;object-fit:cover;flex-shrink:0;background:var(--bg3);border:1px solid var(--border)}
+.card-thumb-placeholder{width:28px;height:39px;border-radius:3px;background:var(--bg3);border:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--text3)}
+.card-info{flex:1;min-width:0}
+.card-name{font-size:13px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card-sub{font-size:11px;color:var(--text3);display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.badge{font-size:10px;padding:1px 5px;border-radius:4px;background:var(--infobg);color:var(--info);white-space:nowrap}
+.badge-land{background:var(--warnbg);color:var(--warn)}
+.badge-cmd{background:var(--warnbg);color:var(--warn)}
+.badge-syn{font-size:10px;padding:1px 6px;border-radius:4px;white-space:nowrap;font-weight:500}
+.rec-badge{font-size:10px;padding:1px 7px;border-radius:4px;white-space:nowrap;font-weight:600;cursor:help;border:1px solid currentColor;opacity:.9}
+.combo-section-header{font-family:'Cinzel',serif;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:10px}
+.combo-card{border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:8px;background:var(--bg2)}
+.combo-complete{border-left:3px solid var(--success)}
+.combo-almost{border-left:3px solid var(--warn)}
+.combo-header{display:flex;align-items:center;gap:7px;margin-bottom:7px}
+.combo-status-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.combo-title{font-size:13px;font-weight:500;color:var(--text);flex:1}
+.combo-link{font-size:11px;color:var(--info);text-decoration:none}
+.combo-link:hover{text-decoration:underline}
+.combo-cards-row{display:flex;flex-wrap:wrap;gap:5px}
+.combo-pill{font-size:11px;padding:2px 8px;border-radius:10px;white-space:nowrap}
+.combo-pill-in{background:var(--successbg);color:var(--success);border:1px solid currentColor}
+.combo-pill-miss{background:var(--warnbg);color:var(--warn);border:1px dashed currentColor;cursor:pointer}
+.combo-pill-miss:hover{opacity:.8}
+.combo-prereq{font-size:11px;color:var(--text3);margin-top:5px;line-height:1.4}
+.suggest-section{border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:10px}
+.suggest-header{font-family:'Cinzel',serif;font-size:12px;font-weight:600;letter-spacing:.05em;margin-bottom:8px}
+.suggest-list{list-style:none;padding:0;margin:0}
+.suggest-item{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px;padding:5px 0;border-bottom:1px solid rgba(0,0,0,.06);font-size:13px;line-height:1.5}
+.suggest-item:last-child{border-bottom:none}
+.suggest-card-name{font-weight:500;color:var(--text)}
+.suggest-reason{color:var(--text3);font-size:12px}
+.syn-score-bar{display:inline-flex;gap:2px;align-items:center}
+.syn-dot{width:5px;height:5px;border-radius:50%}
+.syn-dot-on{background:var(--gold)}
+.syn-dot-off{background:var(--bg3);border:1px solid var(--border)}
+.mana-cost{display:inline-flex;align-items:center;gap:1px}
+.ms{width:14px;height:14px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;flex-shrink:0;border:1px solid rgba(0,0,0,.15)}
+.ms-W{background:#f9f6e8;color:#7a6a2a}.ms-U{background:#1a4a8a;color:#a8d0ff}
+.ms-B{background:#2a2020;color:#c0a0c0}.ms-R{background:#8a2020;color:#ffb090}
+.ms-G{background:#1a5a2a;color:#90d0a0}.ms-C{background:#888;color:#fff}
+.ms-X{background:#444;color:#fff}.ms-N{background:#888;color:#fff}
+
+/* CARD DETAIL MODAL */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;display:flex;align-items:center;justify-content:center;padding:1rem}
+.modal{background:var(--card);border:1px solid var(--border2);border-radius:var(--radius);padding:1.5rem;max-width:580px;width:100%;max-height:90vh;overflow-y:auto;position:relative;box-shadow:0 8px 40px rgba(0,0,0,.3)}
+.modal-close{position:absolute;top:12px;right:14px;background:none;border:none;font-size:20px;cursor:pointer;color:var(--text3);line-height:1}
+.modal-header{display:flex;gap:1rem;margin-bottom:1rem}
+.modal-img{width:130px;border-radius:8px;flex-shrink:0;box-shadow:var(--shadow)}
+.modal-img-placeholder{width:130px;height:182px;border-radius:8px;background:var(--bg3);border:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:12px}
+.modal-card-name{font-family:'Cinzel',serif;font-size:17px;font-weight:600;margin-bottom:4px}
+.modal-type{font-size:13px;color:var(--text2);margin-bottom:8px}
+.modal-oracle{font-size:14px;line-height:1.7;color:var(--text);background:var(--bg2);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:.75rem;white-space:pre-wrap}
+.modal-section{margin-bottom:.75rem}
+.modal-section-title{font-family:'Cinzel',serif;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:6px}
+.ruling{font-size:13px;color:var(--text2);padding:6px 0;border-bottom:1px solid var(--border);line-height:1.6}
+.ruling:last-child{border-bottom:none}
+.ruling-date{font-size:11px;color:var(--text3)}
+.prices{display:flex;gap:10px;flex-wrap:wrap}
+.price-tag{background:var(--bg2);border-radius:var(--radius-sm);padding:6px 12px;text-align:center}
+.price-val{font-family:'Cinzel',serif;font-size:16px;color:var(--text)}
+.price-lbl{font-size:10px;color:var(--text3)}
+.scryfall-link{display:inline-flex;align-items:center;gap:4px;color:var(--info);font-size:12px;text-decoration:none}
+.scryfall-link:hover{text-decoration:underline}
+
+/* SYNERGY */
+.synergy-filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center}
+.synergy-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}
+.syn-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;cursor:pointer;transition:all .15s;display:flex;flex-direction:column}
+.syn-card:hover{border-color:var(--gold);transform:translateY(-2px);box-shadow:var(--shadow)}
+.syn-img{width:100%;aspect-ratio:.716;object-fit:cover;background:var(--bg3);display:block}
+.syn-img-placeholder{width:100%;aspect-ratio:.716;background:var(--bg3);display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:11px;text-align:center;padding:8px}
+.syn-name{font-size:11px;padding:5px 7px 2px;color:var(--text);line-height:1.3;font-weight:500}
+.syn-label{font-size:10px;padding:0 7px 3px;color:var(--text3);font-style:italic;line-height:1.4}
+.syn-footer{display:flex;align-items:center;justify-content:space-between;padding:4px 7px 6px;margin-top:auto}
+.syn-price{font-size:10px;color:var(--text3)}
+.btn-add{font-size:10px;padding:2px 7px;font-family:'Cinzel',serif;background:var(--successbg);color:var(--success);border:1px solid currentColor;border-radius:4px;cursor:pointer;transition:all .12s;white-space:nowrap}
+.btn-add:hover{background:var(--success);color:#fff}
+.btn-add.added{background:var(--bg3);color:var(--text3);border-color:var(--border);cursor:default}
+.syn-ai-label{font-size:10px;padding:0 7px 4px;line-height:1.4}
+
+/* AI */
+.ai-text{font-size:15px;line-height:1.8;color:var(--text)}
+.ai-text strong{font-weight:600;color:var(--text)}
+.ai-text p{margin-bottom:.75rem}
+
+/* MISC */
+.dots{display:inline-flex;gap:4px}
+.dots span{width:6px;height:6px;border-radius:50%;background:var(--text3);animation:bop 1.2s ease-in-out infinite}
+.dots span:nth-child(2){animation-delay:.2s}.dots span:nth-child(3){animation-delay:.4s}
+@keyframes bop{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-7px)}}
+.err{color:var(--danger);font-size:13px}
+.validation-banner{border-radius:var(--radius-sm);padding:10px 14px;margin-bottom:12px;font-size:13px;line-height:1.6}
+.validation-ok{background:var(--successbg);border:1px solid var(--success);color:var(--success)}
+.validation-warn{background:var(--warnbg);border:1px solid var(--warn);color:var(--warn)}
+.validation-err{background:var(--dangerbg);border:1px solid var(--danger);color:var(--danger)}
+.v-issue{display:flex;align-items:baseline;gap:6px;margin-top:4px}
+.v-icon{flex-shrink:0;font-size:13px}
+.empty{text-align:center;padding:2rem;color:var(--text3);font-size:14px}
+.cmd-banner{display:inline-flex;align-items:center;gap:8px;background:var(--warnbg);color:var(--warn);border-radius:var(--radius-sm);padding:5px 14px;font-size:13px;font-family:'Cinzel',serif;margin-bottom:12px;border:1px solid rgba(201,168,76,.3)}
+.not-found{font-size:12px;color:var(--danger);margin-bottom:8px;background:var(--dangerbg);padding:6px 10px;border-radius:var(--radius-sm)}
+.tag{display:inline-block;font-size:10px;padding:2px 7px;border-radius:var(--radius-sm);background:var(--bg3);color:var(--text2);border:1px solid var(--border)}
+input[type=range]{width:100%;accent-color:var(--gold)}
+select{background:var(--bg2);color:var(--text);border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px 10px;font-family:'Crimson Pro',serif;font-size:13px;cursor:pointer}
+select:focus{outline:none;border-color:var(--gold)}
+.set-icon{width:16px;height:16px;vertical-align:middle;opacity:.7}
+
+/* API KEY PANEL */
+.apikey-panel{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px;margin-bottom:1rem;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.apikey-label{font-size:12px;color:var(--text3);white-space:nowrap;font-family:'Cinzel',serif;letter-spacing:.04em}
+.apikey-input{flex:1;min-width:180px;background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:var(--radius-sm);padding:5px 10px;font-family:monospace;font-size:12px}
+.apikey-input:focus{outline:none;border-color:var(--gold)}
+.apikey-status{font-size:11px;white-space:nowrap}
+.apikey-status.ok{color:var(--success)}
+.apikey-status.none{color:var(--text3)}
+.no-key-notice{background:var(--bg2);border:1px dashed var(--border2);border-radius:var(--radius-sm);padding:1.25rem;text-align:center;color:var(--text3)}
+.no-key-notice .icon{font-size:28px;margin-bottom:8px}
+.no-key-notice p{font-size:13px;line-height:1.6;margin-bottom:10px}
+.no-key-notice a{color:var(--info);font-size:12px}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- HEADER -->
+<div class="header">
+  <div class="title">Commander Deck Optimizer</div>
+  <div class="subtitle">Scryfall API · Kartenbilder · Manasymbole · Synergien · Rulings · Preise</div>
+  <div class="color-pips" id="pips">
+    <div class="pip pip-W" data-c="W">W</div>
+    <div class="pip pip-U" data-c="U">U</div>
+    <div class="pip pip-B" data-c="B">B</div>
+    <div class="pip pip-R" data-c="R">R</div>
+    <div class="pip pip-G" data-c="G">G</div>
+  </div>
+</div>
+
+<!-- API KEY PANEL -->
+<div class="apikey-panel">
+  <span class="apikey-label">🔑 Anthropic API-Key</span>
+  <input class="apikey-input" id="apikeyInput" type="password" placeholder="sk-ant-... (optional, nur für AI-Features)" autocomplete="off">
+  <button class="btn btn-sm" onclick="saveApiKey()">Speichern</button>
+  <button class="btn btn-sm" onclick="clearApiKey()" id="clearKeyBtn" style="display:none">Entfernen</button>
+  <span class="apikey-status none" id="apikeyStatus">Kein Key — Scryfall &amp; EDHREC laufen ohne Key ✓</span>
+</div>
+
+<!-- INPUT + RESULTS -->
+<div class="two-col" id="mainGrid">
+
+  <!-- LEFT: Input -->
+  <div>
+    <div class="panel">
+      <div class="panel-title">Decklist</div>
+      <textarea id="deck" placeholder="1 Sol Ring&#10;1 Command Tower&#10;Atraxa, Praetors' Voice&#10;1 Cultivate&#10;...&#10;&#10;// Kommentare mit //"></textarea>
+      <div class="hint">Format: «4 Sol Ring» · «Sol Ring» = 1x · Kommentare mit //</div>
+      <button class="btn btn-block btn-primary" id="analyzeBtn" onclick="go()">Deck analysieren ↗</button>
+    </div>
+    <div class="panel" id="progPanel" style="display:none">
+      <div class="prog-bar"><div class="prog-fill" id="progFill" style="width:0%"></div></div>
+      <div class="prog-lbl" id="progLbl">Starte...</div>
+    </div>
+    <!-- Commander Card -->
+    <div class="panel" id="cmdPanel" style="display:none">
+      <div class="panel-title">Commander</div>
+      <div id="cmdDisplay"></div>
+    </div>
+  </div>
+
+  <!-- RIGHT: Results -->
+  <div id="resultsCol" style="display:none">
+    <div class="panel">
+      <div class="stats-row" id="statsGrid"></div>
+      <div id="validationBanner"></div>
+      <div class="tabs">
+        <button class="tab on" onclick="st('curve')">Mana Curve</button>
+        <button class="tab" onclick="st('types')">Typen</button>
+        <button class="tab" onclick="st('cards')">Karten</button>
+        <button class="tab" onclick="st('synergy')">Synergien</button>
+        <button class="tab" onclick="st('combos')">Pot. Combos</button>
+        <button class="tab" onclick="st('suggest')">Vorschläge</button>
+        <button class="tab" onclick="st('ai')">AI Analyse</button>
+      </div>
+
+      <!-- CURVE -->
+      <div class="tp on" id="tp-curve">
+        <div class="curve-wrap">
+          <div style="font-size:12px;color:var(--text3);margin-bottom:8px">CMC-Verteilung (ohne Länder)</div>
+          <div class="curve-bars" id="curveEl"></div>
+          <div class="cx" id="curveX"></div>
+        </div>
+      </div>
+
+      <!-- TYPES -->
+      <div class="tp" id="tp-types">
+        <div class="type-chips" id="typeChips"></div>
+        <div class="type-bar" id="typeBar"></div>
+      </div>
+
+      <!-- CARDS -->
+      <div class="tp" id="tp-cards">
+        <div id="notFoundEl"></div>
+        <ul class="card-list" id="cardListEl"></ul>
+      </div>
+
+      <!-- SYNERGY -->
+      <div class="tp" id="tp-synergy">
+        <div class="synergy-filters">
+          <select id="synType" onchange="loadSynergy()">
+            <option value="">Alle Typen</option>
+            <option value="t:creature">Creatures</option>
+            <option value="t:instant">Instants</option>
+            <option value="t:sorcery">Sorceries</option>
+            <option value="t:enchantment">Enchantments</option>
+            <option value="t:artifact">Artifacts</option>
+            <option value="t:planeswalker">Planeswalker</option>
+          </select>
+          <select id="synBudget" onchange="loadSynergy()">
+            <option value="">Alle Preise</option>
+            <option value="usd<1">Unter $1</option>
+            <option value="usd<5">Unter $5</option>
+            <option value="usd<15">Unter $15</option>
+            <option value="usd<50">Unter $50</option>
+          </select>
+          <select id="synSort" onchange="loadSynergy()">
+            <option value="edhrec">EDHREC Score</option>
+            <option value="usd">Preis aufsteigend</option>
+            <option value="cmc">CMC</option>
+            <option value="name">Name</option>
+          </select>
+          <button class="btn btn-sm" onclick="loadSynergy()">Suchen</button>
+        </div>
+        <div id="synergyEl"><div class="empty">Deck analysieren um Synergiekarten zu finden.</div></div>
+      </div>
+
+      <!-- POT. COMBOS -->
+      <div class="tp" id="tp-combos">
+        <div id="combosEl"><div class="empty"><div style="font-size:28px;margin-bottom:8px">⚡</div>Deck analysieren um Combos zu finden.</div></div>
+      </div>
+
+      <!-- VORSCHLÄGE -->
+      <div class="tp" id="tp-suggest">
+        <div id="suggestEl"><div class="empty"><div style="font-size:28px;margin-bottom:8px">📋</div>Deck analysieren um Vorschläge zu generieren.</div></div>
+        <button class="btn btn-block" id="suggestBtn" onclick="runSuggest()" style="display:none">Vorschläge generieren ↗</button>
+      </div>
+
+      <!-- AI -->
+      <div class="tp" id="tp-ai">
+        <div id="aiEl"><div class="empty"><div style="font-size:28px;margin-bottom:8px">🧙</div>Deck analysieren, dann AI-Analyse starten.</div></div>
+        <button class="btn btn-block" id="aiBtn" onclick="runAI()" style="display:none">Claude AI Analyse starten ↗</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CARD DETAIL MODAL -->
+<div class="modal-bg" id="modalBg" style="display:none" onclick="closeModal(event)">
+  <div class="modal" id="modal">
+    <button class="modal-close" onclick="closeModalDirect()">✕</button>
+    <div id="modalContent"></div>
+  </div>
+</div>
+
+<script>
+// ─── STATE ───────────────────────────────────────────────────────────────────
+let deck=[], cards={}, notFound=[], symbols={}, cmdColorId=[], synergies={}, synCardStore={}, commanderName='';
+
+// ─── API KEY MANAGEMENT ───────────────────────────────────────────────────────
+const STORAGE_KEY='mtg_anthropic_key';
+
+function getApiKey(){
+  return sessionStorage.getItem(STORAGE_KEY)||localStorage.getItem(STORAGE_KEY)||'';
+}
+
+function saveApiKey(){
+  const val=document.getElementById('apikeyInput').value.trim();
+  if(!val){clearApiKey();return;}
+  // Speichern in sessionStorage (Tab-Session) + localStorage (persistent)
+  sessionStorage.setItem(STORAGE_KEY,val);
+  localStorage.setItem(STORAGE_KEY,val);
+  document.getElementById('apikeyInput').value='';
+  updateKeyStatus();
+}
+
+function clearApiKey(){
+  sessionStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem(STORAGE_KEY);
+  document.getElementById('apikeyInput').value='';
+  updateKeyStatus();
+}
+
+function updateKeyStatus(){
+  const key=getApiKey();
+  const statusEl=document.getElementById('apikeyStatus');
+  const clearBtn=document.getElementById('clearKeyBtn');
+  if(key){
+    statusEl.textContent='✓ API-Key gespeichert — alle AI-Features aktiv';
+    statusEl.className='apikey-status ok';
+    clearBtn.style.display='inline-flex';
+  } else {
+    statusEl.textContent='Kein Key — Scryfall & EDHREC laufen ohne Key ✓';
+    statusEl.className='apikey-status none';
+    clearBtn.style.display='none';
+  }
+}
+
+// Zentrale Funktion für alle Anthropic API Calls
+async function callClaude(messages, maxTokens=1000){
+  const key=getApiKey();
+  if(!key) throw new Error('NO_API_KEY');
+  const r=await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{
+      'Content-Type':'application/json',
+      'x-api-key':key,
+      'anthropic-version':'2023-06-01',
+      'anthropic-dangerous-direct-browser-calls':'true'
+    },
+    body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:maxTokens,messages})
+  });
+  const d=await r.json();
+  if(d.error) throw new Error(d.error.message);
+  return d;
+}
+
+function noKeyNotice(featureName){
+  return `<div class="no-key-notice">
+    <div class="icon">🔑</div>
+    <p><strong>${featureName}</strong> benötigt einen Anthropic API-Key.<br>
+    Scryfall-Daten, EDHREC-Synergien, Keep/Maybe/Cut und Mana-Kurve laufen <strong>ohne Key</strong>.</p>
+    <p style="font-size:12px;color:var(--text3)">Key oben eingeben → Speichern → fertig.<br>
+    Der Key wird nur in deinem Browser gespeichert, nie übertragen.</p>
+    <a href="https://console.anthropic.com/" target="_blank">API-Key auf console.anthropic.com erstellen ↗</a>
+  </div>`;
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+document.querySelectorAll('.pip').forEach(p=>p.addEventListener('click',()=>p.classList.toggle('on')));
+updateKeyStatus();
+loadSymbols();
+
+// Preload mana symbols from Scryfall
+async function loadSymbols(){
+  try{
+    const r=await fetch('https://api.scryfall.com/symbology',{headers:{'User-Agent':'MTGDeckOptimizer/3.0','Accept':'application/json'}});
+    const d=await r.json();
+    d.data.forEach(s=>{ symbols[s.symbol]=s.svg_uri; });
+  }catch(e){ /* fallback to CSS */ }
+}
+
+// ─── PARSE ────────────────────────────────────────────────────────────────────
+function cleanName(name){
+  // Strip trailing annotations like [Category], (note), *CMDR*, #tags
+  return name
+    .replace(/\s*[\[\(].*?[\]\)]\s*$/g, '')  // [Recursion] oder (note)
+    .replace(/\s*\*[^*]+\*\s*$/g, '')         // *CMDR* etc.
+    .replace(/\s*#\S+\s*$/g, '')              // #tag
+    .trim();
+}
+
+function parse(txt){
+  return txt.trim().split('\n').flatMap(l=>{
+    l=l.trim();
+    if(!l||l.startsWith('//')||l.startsWith('#')) return [];
+    const m=l.match(/^(\d+)[xX]?\s+(.+)$/);
+    const rawName=m?m[2].trim():l;
+    const name=cleanName(rawName);
+    if(!name) return [];
+    return [{qty:m?parseInt(m[1]):1, name}];
+  });
+}
+
+// ─── HELPERS ──────────────────────────────────────────────────────────────────
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+function prog(pct,lbl){ document.getElementById('progFill').style.width=pct+'%'; document.getElementById('progLbl').textContent=lbl; }
+function getCard(name){ return cards[name.toLowerCase()]||null; }
+function getCmc(c){ if(!c)return 0; if(c.card_faces)return c.card_faces[0].cmc??c.cmc??0; return c.cmc??0; }
+function getType(c){ if(!c)return ''; if(c.card_faces)return c.card_faces[0].type_line??''; return c.type_line??''; }
+function getOracle(c){ if(!c)return ''; if(c.card_faces)return c.card_faces[0].oracle_text??''; return c.oracle_text??''; }
+function getManaCost(c){ if(!c)return ''; if(c.card_faces)return c.card_faces[0].mana_cost??''; return c.mana_cost??''; }
+function getImgUrl(c,size='small'){
+  if(!c)return null;
+  if(c.image_uris)return c.image_uris[size];
+  if(c.card_faces&&c.card_faces[0].image_uris)return c.card_faces[0].image_uris[size];
+  return null;
+}
+function isCommander(c){
+  if(!c)return false;
+  const t=getType(c);
+  return (t.includes('Legendary')&&(t.includes('Creature')||t.includes('Planeswalker')))
+    ||(getOracle(c).toLowerCase().includes('can be your commander'));
+}
+
+// Render mana cost string as colored circles
+function renderMana(cost){
+  if(!cost)return '';
+  const parts=cost.match(/\{[^}]+\}/g)||[];
+  return parts.map(p=>{
+    const inner=p.slice(1,-1);
+    if(symbols[p]) return `<img src="${symbols[p]}" style="width:13px;height:13px;vertical-align:middle" title="${p}">`;
+    const cls=['W','U','B','R','G','C','X'].includes(inner)?`ms-${inner}`:'ms-N';
+    return `<span class="ms ${cls}">${inner.length>2?inner[0]:inner}</span>`;
+  }).join('');
+}
+
+// ─── FETCH ────────────────────────────────────────────────────────────────────
+async function fetchBatch(names){
+  try{
+    const r=await fetch('https://api.scryfall.com/cards/collection',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Accept':'application/json','User-Agent':'MTGDeckOptimizer/3.0'},
+      body:JSON.stringify({identifiers:names.map(n=>({name:n}))})
+    });
+    if(!r.ok)return null;
+    const d=await r.json();
+    return d.data||[];
+  }catch{return null;}
+}
+
+async function fetchOne(name){
+  try{
+    const r=await fetch(`https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(name)}`,{
+      headers:{'Accept':'application/json','User-Agent':'MTGDeckOptimizer/3.0'}
+    });
+    if(!r.ok)return null;
+    return await r.json();
+  }catch{return null;}
+}
+
+async function fetchRulings(card){
+  if(!card||!card.rulings_uri)return[];
+  try{
+    const r=await fetch(card.rulings_uri,{headers:{'Accept':'application/json','User-Agent':'MTGDeckOptimizer/3.0'}});
+    if(!r.ok)return[];
+    const d=await r.json();
+    return d.data||[];
+  }catch{return[];}
+}
+
+// ─── MAIN ANALYZE ─────────────────────────────────────────────────────────────
+async function go(){
+  const txt=document.getElementById('deck').value;
+  if(!txt.trim())return;
+
+  document.getElementById('analyzeBtn').disabled=true;
+  document.getElementById('resultsCol').style.display='none';
+  document.getElementById('cmdPanel').style.display='none';
+  document.getElementById('progPanel').style.display='block';
+
+  deck=parse(txt); cards={}; notFound=[];
+  const unique=[...new Set(deck.map(c=>c.name))];
+  const BATCH=75;
+
+  for(let i=0;i<unique.length;i+=BATCH){
+    const slice=unique.slice(i,i+BATCH);
+    const batchNum=Math.floor(i/BATCH)+1;
+    const total=Math.ceil(unique.length/BATCH);
+    prog(5+Math.round((i/unique.length)*55),`Batch ${batchNum}/${total}: ${slice.length} Karten...`);
+
+    const result=await fetchBatch(slice);
+    const resolved=new Set();
+
+    if(result){
+      result.forEach(c=>{
+        const key=c.name.toLowerCase();
+        cards[key]=c;
+        // map original input names → resolved card
+        slice.forEach(n=>{ if(n.toLowerCase()===key) resolved.add(n.toLowerCase()); });
+        // fuzzy: input might be slightly different spelling
+        slice.forEach(n=>{ if(!resolved.has(n.toLowerCase())&&key.startsWith(n.toLowerCase().slice(0,6))) resolved.add(n.toLowerCase()); });
+      });
+    }
+
+    // Fallback singles for unresolved
+    const missing=slice.filter(n=>!resolved.has(n.toLowerCase())&&!cards[n.toLowerCase()]);
+    for(const name of missing){
+      prog(60+Math.round((unique.indexOf(name)/unique.length)*25),`Suche: ${name}...`);
+      const c=await fetchOne(name);
+      if(c){ cards[name.toLowerCase()]=c; }
+      else { notFound.push(name); }
+      await sleep(110);
+    }
+    await sleep(60);
+  }
+
+  prog(92,'Rendere Ergebnisse...');
+  await sleep(150);
+  render();
+  prog(96,'Analysiere Synergien...');
+  analyzeSynergies(); // async, läuft im Hintergrund
+  prog(100,'Fertig!');
+  await sleep(300);
+  document.getElementById('progPanel').style.display='none';
+  document.getElementById('resultsCol').style.display='block';
+  document.getElementById('analyzeBtn').disabled=false;
+}
+
+// ─── BRACKET BERECHNUNG ──────────────────────────────────────────────────────
+// Offizieller Game Changers Stand: Oktober 2025
+const GAME_CHANGERS=new Set([
+  'drannith magistrate','humility',"serra's sanctum",'smothering tithe',
+  'enlightened tutor',"teferi's protection",'consecrated sphinx','cyclonic rift',
+  'force of will','fierce guardianship','gifts ungiven','intuition','mystical tutor',
+  "narset, parter of veils",'rhystic study',"thassa's oracle",'ad nauseam',
+  "bolas's citadel",'braids, cabal minion','demonic tutor','imperial seal',
+  'necropotence','opposition agent','orcish bowmasters','tergrid, god of fright',
+  'vampiric tutor','gamble',"jeska's will",'underworld breach','crop rotation',
+  "gaea's cradle",'natural order','seedborn muse','survival of the fittest',
+  'worldly tutor','aura shards','coalition victory','grand arbiter augustin iv',
+  'notion thief','ancient tomb','chrome mox','field of the dead','glacial chasm',
+  'grim monolith',"lion's eye diamond","mana vault","mishra's workshop",'mox diamond',
+  'panoptic mirror','the one ring','the tabernacle at pendrell vale',
+  // Commanders auf der Liste
+  'kinnan, bonder prodigy',"yuriko, the tiger's shadow",'winota, joiner of forces',
+]);
+
+// Extra Turns Karten (Auswahl der häufigsten)
+const EXTRA_TURNS=new Set([
+  'time warp','temporal manipulation','capture of jingzhou','time stretch',
+  'expropriate','nexus of fate','temporal mastery','walk the aeons',
+  'beacon of tomorrows','part the waterveil','alrund\'s epiphany',
+  'savor the moment','magistrate\'s scepter','lighthouse chronologist',
+  'taking turns','final fortune','last chance','warrior\'s oath',
+]);
+
+// Mass Land Denial
+const MASS_LAND_DENIAL=new Set([
+  'armageddon','ravages of war','apocalypse','catastrophe','decree of annihilation',
+  'obliterate','jokulhaups','wildfire','burning of xinye','geddon',
+  'fall of the thespian stage','ruination','From the Ashes','keldon firebombers',
+  'impending disaster','land equilibrium','winter orb','static orb',
+  'stasis','tectonic instability','mana vortex','sunder','balance',
+  'global ruin','cataclysm','the abyss',
+]);
+
+// Bekannte Infinite-Combo Pieces (häufige 2-Karten-Kombos)
+const COMBO_PIECES=new Set([
+  'thassa\'s oracle','doomsday','labman','laboratory maniac',
+  'thoracle','final parting','tainted pact','demonic consultation',
+  'kiki-jiki, mirror breaker','splinter twin','deceiver exarch','pestermite',
+  'zealous conscripts','twin','exquisite blood','sanguine bond',
+  'heliod, sun-crowned','walking ballista','mikaeus, the unhallowed',
+  'triskelion','devoted druid','vizier of remedies','spike feeder',
+  "archangel of thune",'nim deathmantle','ashnod\'s altar','phyrexian altar',
+  'priest of gix','auriok champion',
+]);
+
+function calcBracket(){
+  const allNames=deck.map(c=>(getCard(c.name)?.name||c.name).toLowerCase());
+
+  const gcFound=allNames.filter(n=>GAME_CHANGERS.has(n));
+  const extraTurns=allNames.filter(n=>EXTRA_TURNS.has(n));
+  const massLand=allNames.filter(n=>MASS_LAND_DENIAL.has(n));
+  const comboPieces=allNames.filter(n=>COMBO_PIECES.has(n));
+
+  // Avg CMC ohne Länder als Power-Indikator
+  const nonLandCards=deck.filter(c=>{const cd=getCard(c.name);return cd&&!getType(cd).includes('Land');});
+  const avgCmc=nonLandCards.length
+    ?nonLandCards.reduce((s,c)=>s+getCmc(getCard(c.name))*c.qty,0)/nonLandCards.reduce((s,c)=>s+c.qty,0)
+    :3;
+
+  const reasons=[];
+  let bracket=1;
+
+  // Bracket-Regeln
+  if(massLand.length>0){
+    bracket=Math.max(bracket,4);
+    reasons.push(`Mass Land Denial: ${massLand.slice(0,3).map(n=>deck.find(c=>(getCard(c.name)?.name||c.name).toLowerCase()===n)?.name||n).join(', ')}`);
+  }
+  if(extraTurns.length>0){
+    bracket=Math.max(bracket,3);
+    reasons.push(`Extra Turns: ${extraTurns.slice(0,3).map(n=>deck.find(c=>(getCard(c.name)?.name||c.name).toLowerCase()===n)?.name||n).join(', ')}`);
+  }
+  if(comboPieces.length>=2){
+    bracket=Math.max(bracket,3);
+    reasons.push(`Mögliche Infinite-Combos (${comboPieces.length} Combo-Pieces erkannt)`);
+  }
+  if(gcFound.length===0){
+    bracket=Math.max(bracket,1);
+    reasons.push('Keine Game Changers → max. Bracket 2');
+    if(bracket<2) bracket=1;
+  } else if(gcFound.length<=3){
+    bracket=Math.max(bracket,3);
+    const names=gcFound.map(n=>{
+      const e=deck.find(c=>(getCard(c.name)?.name||c.name).toLowerCase()===n);
+      return e?(getCard(e.name)?.name||e.name):n;
+    });
+    reasons.push(`${gcFound.length} Game Changer${gcFound.length>1?'s':''}: ${names.join(', ')}`);
+  } else {
+    bracket=Math.max(bracket,4);
+    const names=gcFound.slice(0,4).map(n=>{
+      const e=deck.find(c=>(getCard(c.name)?.name||c.name).toLowerCase()===n);
+      return e?(getCard(e.name)?.name||e.name):n;
+    });
+    reasons.push(`${gcFound.length} Game Changers: ${names.join(', ')}${gcFound.length>4?' ...':''}`);
+  }
+
+  // Hochoptimierte Manabase → Bracket 4+
+  const fastMana=['sol ring','mana crypt','mana vault','chrome mox','mox diamond','lotus petal','dark ritual','cabal ritual'];
+  const fastManaCount=allNames.filter(n=>fastMana.includes(n)).length;
+  if(fastManaCount>=3&&bracket<4){
+    bracket=4;
+    reasons.push(`${fastManaCount} Fast-Mana-Quellen → Bracket 4`);
+  }
+
+  // cEDH-Indikator: sehr viele tutors + GC + combo
+  const tutors=allNames.filter(n=>['demonic tutor','vampiric tutor','imperial seal','mystical tutor','enlightened tutor','worldly tutor','gamble','natural order','crop rotation'].includes(n));
+  if(bracket>=4&&tutors.length>=3&&comboPieces.length>=2&&gcFound.length>=5){
+    bracket=5;
+    reasons.push(`cEDH-Indikatoren: ${tutors.length} Tutoren, ${comboPieces.length} Combo-Pieces, ${gcFound.length} Game Changers`);
+  }
+
+  // Mindest-Bracket: wenn keine besondere Karte → Bracket 2 für fertige Decks
+  if(bracket===1&&deck.length>=60) bracket=2;
+
+  const labels={1:'Exhibition',2:'Core',3:'Upgraded',4:'Optimized',5:'cEDH'};
+  const colors={1:'#0f6e56',2:'#185fa5',3:'#854f0b',4:'#a32d2d',5:'#6a1a1a'};
+  const bgs={1:'#e1f5ee',2:'#ddeeff',3:'#faeeda',4:'#fde8e8',5:'#3a0a0a'};
+
+  return {bracket,label:labels[bracket],color:colors[bracket],bg:bgs[bracket],reasons};
+}
+
+// ─── RENDER ───────────────────────────────────────────────────────────────────
+function render(){
+  const total=deck.reduce((s,c)=>s+c.qty,0);
+  const found=deck.filter(c=>getCard(c.name));
+  const lands=deck.filter(c=>{const cd=getCard(c.name);return cd&&getType(cd).includes('Land');}).reduce((s,c)=>s+c.qty,0);
+  const nonLand=found.filter(c=>!getType(getCard(c.name)).includes('Land'));
+  const avgCmc=nonLand.length?nonLand.reduce((s,c)=>s+getCmc(getCard(c.name))*c.qty,0)/nonLand.reduce((s,c)=>s+c.qty,0):0;
+
+  // Commander
+  const cmdEntry=deck.find(c=>isCommander(getCard(c.name)));
+  if(cmdEntry){
+    const cd=getCard(cmdEntry.name);
+    commanderName=(cd?.name||cmdEntry.name).toLowerCase();
+    cmdColorId=cd?.color_identity||[];
+    renderCommander(cd);
+    // Set pip selection to match commander colors
+    document.querySelectorAll('.pip').forEach(p=>{
+      p.classList.toggle('on',cmdColorId.includes(p.dataset.c));
+    });
+  }
+
+  const br=calcBracket();
+  const tooltipReasons=br.reasons.map(r=>`• ${r}`).join('&#10;');
+
+  document.getElementById('statsGrid').innerHTML=`
+    <div class="stat"><div class="stat-v">${total}</div><div class="stat-l">Karten</div></div>
+    <div class="stat"><div class="stat-v">${lands}</div><div class="stat-l">Länder</div></div>
+    <div class="stat"><div class="stat-v">${avgCmc.toFixed(2)}</div><div class="stat-l">Ø CMC</div></div>
+    <div class="stat"><div class="stat-v">${found.length}/${deck.length}</div><div class="stat-l">Erkannt</div></div>
+    <div class="stat" style="cursor:help;position:relative" title="${tooltipReasons}">
+      <div class="stat-v" style="color:${br.color};font-size:16px">
+        Bracket ${br.bracket}
+        <span style="font-size:18px;margin-left:2px" title="${tooltipReasons}">?</span>
+      </div>
+      <div class="stat-l" style="color:${br.color}">${br.label}</div>
+      <div style="font-size:10px;color:var(--text3);margin-top:4px;line-height:1.4;text-align:left">
+        ${br.reasons.slice(0,2).map(r=>`<div>· ${r.length>45?r.slice(0,45)+'…':r}</div>`).join('')}
+      </div>
+    </div>`;
+
+  renderValidation();
+  renderCurve();
+  renderTypes();
+  renderCards();
+  loadSynergy();
+
+  document.getElementById('aiEl').innerHTML=`<div class="empty"><div style="font-size:28px;margin-bottom:8px">🧙</div>Bereit! AI-Analyse für Synergien & Verbesserungsvorschläge starten.</div>`;
+  document.getElementById('aiBtn').style.display='flex';
+  document.getElementById('suggestBtn').style.display='flex';
+  document.getElementById('suggestEl').innerHTML=`<div class="empty"><div style="font-size:28px;margin-bottom:8px">📋</div>Klicke "Vorschläge generieren" für Claude AI Cut & Add Empfehlungen.</div>`;
+  loadCombos();
+}
+
+function renderCommander(cd){
+  if(!cd){document.getElementById('cmdPanel').style.display='none';return;}
+  const img=getImgUrl(cd,'normal');
+  const ci=cd.color_identity?.join('')||'?';
+  const mana=renderMana(getManaCost(cd));
+  const price=cd.prices?.usd?`$${cd.prices.usd}`:(cd.prices?.eur?`€${cd.prices.eur}`:'');
+  document.getElementById('cmdDisplay').innerHTML=`
+    <div style="display:flex;gap:12px;align-items:flex-start">
+      ${img?`<img src="${img}" style="width:80px;border-radius:6px;box-shadow:var(--shadow);flex-shrink:0" alt="${cd.name}">`:`<div style="width:80px;height:112px;background:var(--bg3);border-radius:6px;flex-shrink:0"></div>`}
+      <div>
+        <div style="font-family:'Cinzel',serif;font-size:15px;font-weight:600;margin-bottom:3px">${cd.name}</div>
+        <div style="font-size:12px;color:var(--text3);margin-bottom:4px">${getType(cd)}</div>
+        <div style="margin-bottom:6px">${mana}</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <span class="tag">Farbidentität: ${ci}</span>
+          ${price?`<span class="tag">${price}</span>`:''}
+          ${cd.legalities?.commander==='legal'?'<span class="tag" style="background:var(--successbg);color:var(--success)">Commander-legal</span>':''}
+        </div>
+      </div>
+    </div>`;
+  document.getElementById('cmdPanel').style.display='block';
+}
+
+function renderValidation(){
+  const issues=[];
+  const warnings=[];
+
+  // Basic Land Namen (dürfen mehrfach vorkommen)
+  const BASIC_LANDS=new Set([
+    'plains','island','swamp','mountain','forest',
+    'wastes','snow-covered plains','snow-covered island',
+    'snow-covered swamp','snow-covered mountain','snow-covered forest',
+  ]);
+
+  // 1) Karten-Anzahl: Commander zählt mit → muss exakt 100 sein
+  const total=deck.reduce((s,c)=>s+c.qty,0);
+  if(total<100){
+    issues.push(`Nur ${total}/100 Karten — es fehlen ${100-total} Karte${100-total!==1?'n':''}`);
+  } else if(total>100){
+    issues.push(`${total}/100 Karten — ${total-100} Karte${total-100!==1?'n':''} zu viel`);
+  }
+
+  // 2) Duplikat-Prüfung (keine Basic Lands, keine Karten mit "A deck can have any number")
+  const nameCount={};
+  deck.forEach(c=>{
+    const cd=getCard(c.name);
+    const resolvedName=(cd?.name||c.name).toLowerCase();
+    // Karten die explizit unbegrenzt erlaubt sind
+    const oracle=getOracle(cd).toLowerCase();
+    const isUnlimited=oracle.includes('a deck can have any number') || BASIC_LANDS.has(resolvedName);
+    if(isUnlimited) return;
+    nameCount[resolvedName]=(nameCount[resolvedName]||0)+c.qty;
+  });
+
+  const dupes=Object.entries(nameCount)
+    .filter(([,qty])=>qty>1)
+    .map(([name,qty])=>{
+      // Original-Namen für Anzeige holen
+      const entry=deck.find(c=>(getCard(c.name)?.name||c.name).toLowerCase()===name);
+      const displayName=entry?(getCard(entry.name)?.name||entry.name):name;
+      return {name:displayName,qty};
+    });
+
+  if(dupes.length>0){
+    const dupeStr=dupes.slice(0,4).map(d=>`${d.name} (${d.qty}x)`).join(', ');
+    issues.push(`Duplikate gefunden: ${dupeStr}${dupes.length>4?` +${dupes.length-4} weitere`:''}`);
+  }
+
+  // 3) Kein Commander erkannt?
+  if(!commanderName){
+    warnings.push('Kein Commander erkannt — erste Legendary Creature/Planeswalker wird als Commander gewertet');
+  }
+
+  // 4) Commander nicht Commander-legal?
+  const cmdCard=cards[commanderName];
+  if(cmdCard&&cmdCard.legalities?.commander!=='legal'){
+    issues.push(`${cmdCard.name} ist nicht Commander-legal!`);
+  }
+
+  // 5) Farbidentitäts-Verletzungen
+  if(cmdCard&&cmdColorId.length>0){
+    const colorViolations=[];
+    deck.forEach(c=>{
+      const cd=getCard(c.name);
+      if(!cd||(cd.name||'').toLowerCase()===commanderName) return;
+      const cardCI=cd.color_identity||[];
+      const illegal=cardCI.filter(col=>!cmdColorId.includes(col));
+      if(illegal.length>0) colorViolations.push(cd.name);
+    });
+    if(colorViolations.length>0){
+      issues.push(`Farbidentitäts-Verletzung: ${colorViolations.slice(0,3).join(', ')}${colorViolations.length>3?` +${colorViolations.length-3} weitere`:''}`);
+    }
+  }
+
+  // Banner rendern
+  const el=document.getElementById('validationBanner');
+  if(!el) return;
+
+  if(issues.length===0&&warnings.length===0){
+    el.innerHTML=`<div class="validation-banner validation-ok">
+      <strong>✓ Deck ist regelkonform</strong> — 100 Karten, keine Duplikate, Farbidentität ok
+    </div>`;
+    return;
+  }
+
+  let html='';
+  if(issues.length>0){
+    html+=`<div class="validation-banner validation-err">
+      <strong>✗ Regelverstoß${issues.length>1?'e':''} gefunden</strong>
+      ${issues.map(i=>`<div class="v-issue"><span class="v-icon">⚠</span><span>${i}</span></div>`).join('')}
+    </div>`;
+  }
+  if(warnings.length>0){
+    html+=`<div class="validation-banner validation-warn">
+      <strong>⚠ Hinweis${warnings.length>1?'e':''}</strong>
+      ${warnings.map(w=>`<div class="v-issue"><span class="v-icon">›</span><span>${w}</span></div>`).join('')}
+    </div>`;
+  }
+  el.innerHTML=html;
+}
+
+function renderCurve(){
+  const cnts={0:0,1:0,2:0,3:0,4:0,5:0,6:0,7:0};
+  deck.forEach(c=>{
+    const cd=getCard(c.name);
+    if(!cd||getType(cd).includes('Land'))return;
+    cnts[Math.min(7,Math.floor(getCmc(cd)))]+=c.qty;
+  });
+  const mx=Math.max(...Object.values(cnts),1);
+  const cols=['#888780','#3266ad','#1a9e75','#1a9e75','#9e3d1a','#9e3d1a','#6a1a9e','#a32d2d'];
+  const lbls=['0','1','2','3','4','5','6','7+'];
+  let bars='',xs='';
+  for(let i=0;i<=7;i++){
+    const h=Math.max(Math.round((cnts[i]/mx)*78),cnts[i]?3:0);
+    bars+=`<div class="cc"><div class="cbn">${cnts[i]||''}</div><div class="cb" style="height:${h}px;background:${cols[i]}"></div></div>`;
+    xs+=`<div class="cxl">${lbls[i]}</div>`;
+  }
+  document.getElementById('curveEl').innerHTML=bars;
+  document.getElementById('curveX').innerHTML=xs;
+}
+
+function renderTypes(){
+  const T={Creature:0,Instant:0,Sorcery:0,Enchantment:0,Artifact:0,Planeswalker:0,Land:0,Other:0};
+  const TC={Creature:'#3266ad',Instant:'#9e1a1a',Sorcery:'#9e4d1a',Enchantment:'#1a9e75',Artifact:'#73726c',Planeswalker:'#6a1a9e',Land:'#7a6a2a',Other:'#888780'};
+  deck.forEach(c=>{
+    const cd=getCard(c.name);if(!cd)return;
+    const t=getType(cd);let m=false;
+    for(const k of Object.keys(T)){if(k!=='Other'&&t.includes(k)){T[k]+=c.qty;m=true;break;}}
+    if(!m)T.Other+=c.qty;
+  });
+  const tot=Object.values(T).reduce((a,b)=>a+b,0)||1;
+  let chips='',bar='',off=0;
+  for(const[k,v]of Object.entries(T)){
+    if(!v)continue;
+    chips+=`<div class="chip"><span class="dot" style="background:${TC[k]}"></span><span style="font-weight:500;color:var(--text)">${v}</span>${k}<span style="color:var(--text3);font-size:11px">${Math.round(v/tot*100)}%</span></div>`;
+    bar+=`<div class="type-seg" title="${k}: ${v}" style="width:${v/tot*100}%;background:${TC[k]}"></div>`;
+  }
+  document.getElementById('typeChips').innerHTML=chips;
+  document.getElementById('typeBar').innerHTML=bar;
+}
+
+// ─── FALLBACK: Kategorie aus Oracle-Text ableiten ────────────────────────────
+function guessCategoryFromOracle(cd){
+  if(!cd) return null;
+  const o=(getOracle(cd)+' '+getType(cd)).toLowerCase();
+  const t=getType(cd).toLowerCase();
+
+  if(o.includes('proliferate'))                                    return 'Proliferate';
+  if(o.includes('create') && o.includes('token'))                  return 'Tokens';
+  if(o.includes('+1/+1 counter')||o.includes('put a counter'))     return 'Counters';
+  if(o.includes('search your library')&&o.includes('land'))        return 'Ramp';
+  if(o.includes('add ')&&(o.includes('mana')||o.match(/add \{[wubrgc]/))) return 'Ramp';
+  if(o.includes('search your library')&&!o.includes('land'))       return 'Tutor';
+  if(o.includes('draw a card')||o.includes('draw two')||o.includes('draw three')||o.includes('draw x')) return 'Draw';
+  if(o.includes('return')&&o.includes('graveyard')&&o.includes('hand'))        return 'Recursion';
+  if(o.includes('return')&&o.includes('graveyard')&&o.includes('battlefield')) return 'Recursion';
+  if(o.includes('destroy all')||o.includes('exile all')||o.includes('damage to all')) return 'Boardwipe';
+  if(o.includes('destroy target')||o.includes('exile target')||o.includes('deals damage to target')) return 'Removal';
+  if(o.includes('counter target'))                                 return 'Interaction';
+  if(o.includes('hexproof')||o.includes('indestructible')||o.includes('protection from')) return 'Protection';
+  if(o.includes('players win')||o.includes('lose the game'))       return 'Wincon';
+  if(t.includes('land'))                                           return 'Lands';
+  return 'Staple';
+}
+
+// ─── RELEVANZ-EINSCHÄTZUNG für Karten ohne EDHREC-Daten ──────────────────────
+// Gibt 'up' / 'mid' / 'down' zurück basierend auf Commander-Strategie
+function guessRelevance(cd){
+  if(!cd) return 'mid';
+  const oracle=getOracle(cd).toLowerCase();
+  const type=getType(cd).toLowerCase();
+  const category=guessCategoryFromOracle(cd);
+  const cmc=getCmc(cd);
+
+  // Commander-Oracle analysieren für Strategie-Keywords
+  const cmdCard=cards[commanderName];
+  const cmdOracle=(cmdCard?getOracle(cmdCard):'').toLowerCase();
+  const cmdType=(cmdCard?getType(cmdCard):'').toLowerCase();
+
+  // Keywords aus Commander extrahieren
+  const cmdKeywords=[];
+  if(cmdOracle.includes('counter'))       cmdKeywords.push('counter');
+  if(cmdOracle.includes('token'))         cmdKeywords.push('token');
+  if(cmdOracle.includes('proliferate'))   cmdKeywords.push('proliferate');
+  if(cmdOracle.includes('creature'))      cmdKeywords.push('creature');
+  if(cmdOracle.includes('draw'))          cmdKeywords.push('draw');
+  if(cmdOracle.includes('graveyard'))     cmdKeywords.push('graveyard');
+  if(cmdOracle.includes('enchantment'))   cmdKeywords.push('enchantment');
+  if(cmdOracle.includes('artifact'))      cmdKeywords.push('artifact');
+  if(cmdOracle.includes('instant')||cmdOracle.includes('sorcery')) cmdKeywords.push('instant');
+  if(cmdOracle.includes('land'))          cmdKeywords.push('land');
+  if(cmdOracle.includes('planeswalker'))  cmdKeywords.push('planeswalker');
+  if(cmdOracle.includes('+1/+1'))         cmdKeywords.push('counter');
+  if(cmdOracle.includes('attack'))        cmdKeywords.push('attack');
+  if(cmdOracle.includes('mana'))          cmdKeywords.push('ramp');
+
+  // Immer gut: Ramp, Removal, Tutoren, Draw mit niedrigem CMC
+  const alwaysGood=['Ramp','Tutor','Draw','Removal','Boardwipe','Interaction'];
+  if(alwaysGood.includes(category) && cmc<=4) return 'up';
+  if(alwaysGood.includes(category) && cmc<=6) return 'mid';
+
+  // Wincon / Combo immer gut
+  if(category==='Wincon'||category==='Combo') return 'up';
+
+  // Synergiert mit Commander-Strategie?
+  let synHits=0;
+  if(cmdKeywords.includes('counter') && (oracle.includes('counter')||oracle.includes('+1/+1'))) synHits+=2;
+  if(cmdKeywords.includes('token') && oracle.includes('token')) synHits+=2;
+  if(cmdKeywords.includes('proliferate') && oracle.includes('proliferate')) synHits+=3;
+  if(cmdKeywords.includes('graveyard') && oracle.includes('graveyard')) synHits+=2;
+  if(cmdKeywords.includes('enchantment') && type.includes('enchantment')) synHits+=1;
+  if(cmdKeywords.includes('artifact') && type.includes('artifact')) synHits+=1;
+  if(cmdKeywords.includes('attack') && (oracle.includes('attack')||oracle.includes('combat'))) synHits+=1;
+  if(cmdKeywords.includes('draw') && oracle.includes('draw')) synHits+=1;
+  if(cmdKeywords.includes('land') && (oracle.includes('land')||type.includes('land'))) synHits+=1;
+  if(cmdKeywords.includes('planeswalker') && type.includes('planeswalker')) synHits+=1;
+
+  if(synHits>=3) return 'up';
+  if(synHits>=1) return 'mid';
+
+  // Hohe CMC ohne klare Synergie = eher schlecht
+  if(cmc>=6 && synHits===0) return 'down';
+  if(cmc>=4 && synHits===0 && category==='Staple') return 'down';
+
+  return 'mid';
+}
+
+const THUMB={
+  up:   {icon:'👍', color:'#0f6e56', title:'Gute Synergie mit dem Commander'},
+  mid:  {icon:'〰', color:'#854f0b', title:'Solide, aber keine starke Synergie'},
+  down: {icon:'👎', color:'#a32d2d', title:'Schwache Synergie — Ersatz erwägen'},
+};
+
+// ─── SYNERGIE-ANALYSE ────────────────────────────────────────────────────────
+const SYN_COLORS={
+  'Ramp':         ['#0f6e56','#e1f5ee'],
+  'Draw':         ['#185fa5','#ddeeff'],
+  'Removal':      ['#a32d2d','#fde8e8'],
+  'Interaction':  ['#185fa5','#ddeeff'],
+  'Protection':   ['#5a5a5a','#f0f0f0'],
+  'Tutor':        ['#5a1a8a','#ede8ff'],
+  'Wincon':       ['#854f0b','#faeeda'],
+  'Boardwipe':    ['#a32d2d','#fde8e8'],
+  'Recursion':    ['#5a1a8a','#ede8ff'],
+  'Combo':        ['#854f0b','#faeeda'],
+  'Counters':     ['#0f6e56','#e1f5ee'],
+  'Tokens':       ['#0f6e56','#e1f5ee'],
+  'Proliferate':  ['#0f6e56','#e1f5ee'],
+  'Lands':        ['#7a6a2a','#f5f0e0'],
+  'Staple':       ['#444','#efefef'],
+};
+
+function synBadgeHtml(name, cd){
+  const key=name?.toLowerCase();
+  let s=synergies[key];
+  const hasEdhrec=!!s;
+
+  // Fallback: Kategorie aus Oracle-Text wenn EDHREC keine Daten hat
+  if(!s && cd){
+    const cat=guessCategoryFromOracle(cd);
+    if(cat) s={category:cat, synergy:null};
+  }
+
+  if(!s) return '';
+  const [tc,bg]=SYN_COLORS[s.category]||['#444','#efefef'];
+
+  if(hasEdhrec){
+    // EDHREC-Daten: Kategorie + Prozent
+    const pct=Math.round(s.synergy);
+    const pctColor=pct>=15?'#0f6e56':pct<=-5?'#a32d2d':'#8a7a5a';
+    const pctStr=(pct>0?'+':'')+pct+'%';
+    return `<span class="badge-syn" style="background:${bg};color:${tc}" title="${s.category} · EDHREC: ${pctStr}">${s.category}</span>`
+         + `<span style="font-size:10px;color:${pctColor};font-weight:600;white-space:nowrap">${pctStr}</span>`;
+  } else {
+    // Fallback: Kategorie + Daumen-Icon
+    const rel=guessRelevance(cd);
+    const th=THUMB[rel];
+    return `<span class="badge-syn" style="background:${bg};color:${tc}" title="${s.category} · (Einschätzung)">${s.category}</span>`
+         + `<span style="font-size:12px" title="${th.title}">${th.icon}</span>`;
+  }
+}
+
+// ─── DECKBAU-RATIOS (Zielwerte für ein 100-Karten Commander-Deck) ─────────────
+const TARGET_RATIOS={
+  Ramp:       {ideal:10, max:14},
+  Draw:       {ideal:10, max:14},
+  Removal:    {ideal:8,  max:12},
+  Boardwipe:  {ideal:3,  max:5},
+  Tutor:      {ideal:4,  max:7},
+  Protection: {ideal:4,  max:7},
+  Recursion:  {ideal:4,  max:7},
+  Interaction:{ideal:5,  max:8},
+  Counters:   {ideal:6,  max:12},
+  Tokens:     {ideal:6,  max:12},
+  Proliferate:{ideal:6,  max:12},
+  Combo:      {ideal:3,  max:6},
+  Wincon:     {ideal:4,  max:8},
+  Lands:      {ideal:36, max:40},
+  Staple:     {ideal:10, max:20},
+};
+
+// Absolute Staples die in jedem Commander-Deck sein sollten
+const UNIVERSAL_STAPLES=new Set([
+  'sol ring','arcane signet','commander\'s sphere','fellwar stone',
+  'mind stone','thought vessel','command tower','exotic orchard',
+  'reliquary tower','sol talisman','lightning greaves','swiftfoot boots',
+  'cyclonic rift','path to exile','swords to plowshares','counterspell',
+  'cultivate','kodama\'s reach','rampant growth','farseek','nature\'s lore',
+  'three visits','birds of paradise','llanowar elves','elvish mystic',
+  'brainstorm','ponder','preordain','rhystic study','mystic remora',
+  'demonic tutor','vampiric tutor','enlightened tutor','mystical tutor',
+  'worldly tutor','reality ripple','generous gift','beast within',
+  'rapid hybridization','chaos warp','despark','anguished unmaking',
+  'vanishing verse','farewell','wrath of god','damnation',
+  'day of judgment','blasphemous act','toxic deluge','cyclonic rift',
+  'smothering tithe','rhystic study','ghostly prison','propaganda',
+]);
+
+// Berechnet Keep/Maybe/Cut für eine Karte
+// categoryCounters = { Ramp: 3, Draw: 5, ... } — wie viele Keep-Karten pro Kategorie bereits vergeben
+function getRecommendation(c, cd, categoryCounters){
+  if(!cd) return null;
+  const name=(cd.name||c.name).toLowerCase();
+  const typeLine=getType(cd);
+  const isLand=typeLine.includes('Land');
+  const isCmd=name===commanderName;
+  const cmc=getCmc(cd);
+  const category=guessCategoryFromOracle(cd)||'Staple';
+  const s=synergies[name];
+  const synPct=s&&s.synergy!==null?s.synergy:null;
+  const rel=guessRelevance(cd);
+
+  // Commander & Länder: immer Keep, keine Empfehlung nötig
+  if(isCmd) return null;
+  if(isLand) return null;
+
+  const ratio=TARGET_RATIOS[category]||TARGET_RATIOS['Staple'];
+  const catCount=categoryCounters[category]||0;
+
+  // ── KEEP ─────────────────────────────────────────────────────────────────
+  // 1. Universal Staple
+  if(UNIVERSAL_STAPLES.has(name)){
+    categoryCounters[category]=(catCount)+1;
+    return {tag:'Keep', reason:'Universal Staple — gehört in jeden Commander-Deck', color:'#0f6e56', bg:'#e1f5ee'};
+  }
+  // 2. Starke EDHREC-Synergie
+  if(synPct!==null&&synPct>=20&&catCount<ratio.max){
+    categoryCounters[category]=(catCount)+1;
+    return {tag:'Keep', reason:`Hohe EDHREC-Synergie (+${Math.round(synPct)}%) — klar zum Commander passend`, color:'#0f6e56', bg:'#e1f5ee'};
+  }
+  // 3. Gute Synergie + Ratio noch nicht erfüllt
+  if(synPct!==null&&synPct>=10&&catCount<ratio.ideal){
+    categoryCounters[category]=(catCount)+1;
+    return {tag:'Keep', reason:`Gute Synergie (+${Math.round(synPct)}%) und ${category}-Slot frei (${catCount}/${ratio.ideal})`, color:'#0f6e56', bg:'#e1f5ee'};
+  }
+  // 4. Fallback-Einschätzung positiv + Ratio frei
+  if(synPct===null&&rel==='up'&&catCount<ratio.ideal){
+    categoryCounters[category]=(catCount)+1;
+    return {tag:'Keep', reason:`Gute ${category}-Karte, Slot frei (${catCount}/${ratio.ideal})`, color:'#0f6e56', bg:'#e1f5ee'};
+  }
+  // 5. Combo-Piece
+  if(category==='Combo'||category==='Wincon'){
+    if(catCount<ratio.max){
+      categoryCounters[category]=(catCount)+1;
+      return {tag:'Keep', reason:`${category}-Piece — wichtig für Sieg-Strategie`, color:'#0f6e56', bg:'#e1f5ee'};
+    }
+  }
+
+  // ── CUT ──────────────────────────────────────────────────────────────────
+  // 1. Negative EDHREC-Synergie
+  if(synPct!==null&&synPct<-5){
+    return {tag:'Cut', reason:`Negative EDHREC-Synergie (${Math.round(synPct)}%) — passt nicht zum Commander`, color:'#a32d2d', bg:'#fde8e8'};
+  }
+  // 2. Ratio bereits überschritten
+  if(catCount>=ratio.max){
+    return {tag:'Cut', reason:`${category}-Slot überfüllt (${catCount}/${ratio.max} max) — schwächste ${category}-Karte ersetzen`, color:'#a32d2d', bg:'#fde8e8'};
+  }
+  // 3. Hohe CMC + schlechte Synergie
+  if(cmc>=6&&(synPct===null||synPct<5)&&rel==='down'){
+    return {tag:'Cut', reason:`CMC ${cmc} ohne klare Synergie — zu langsam für dieses Deck`, color:'#a32d2d', bg:'#fde8e8'};
+  }
+  // 4. Fallback-Einschätzung negativ
+  if(synPct===null&&rel==='down'){
+    return {tag:'Cut', reason:`Schwache Synergie mit ${commanderName||'dem Commander'} — bessere Option suchen`, color:'#a32d2d', bg:'#fde8e8'};
+  }
+
+  // ── MAYBE ────────────────────────────────────────────────────────────────
+  // Alles andere
+  const maybeReason=synPct!==null
+    ?`EDHREC-Synergie ${synPct>=0?'+':''}${Math.round(synPct)}% — solide, aber austauschbar`
+    :`${category}-Karte, halbwegs sinnvoll — je nach Strategie behalten oder ersetzen`;
+  return {tag:'Maybe', reason:maybeReason, color:'#854f0b', bg:'#faeeda'};
+}
+
+// Separate Listen-DOM — renderCards baut nur <li> Elemente, nie das ganze Tab
+function buildCardLi(c, categoryCounters){
+  const cd=getCard(c.name);
+  const img=cd?getImgUrl(cd,'small'):null;
+  const mana=renderMana(getManaCost(cd));
+  const typeLine=cd?getType(cd):'';
+  const isLand=typeLine.includes('Land');
+  const isCmd=cd&&(cd.name||'').toLowerCase()===commanderName;
+  const price=cd?.prices?.usd?`$${cd.prices.usd}`:(cd?.prices?.eur?`€${cd.prices.eur}`:'');
+
+  // Typ-Badge: voller Haupttyp + Subtype sichtbar
+  const mainType=typeLine.split(' — ')[0].trim()||'?';
+  const subType=typeLine.includes(' — ')?typeLine.split(' — ')[1].trim():'';
+  const typeLabel=subType?`${mainType} · ${subType}`:mainType;
+
+  // Synergie
+  const synHtml=(!isLand&&!isCmd)?synBadgeHtml(cd?.name||c.name, cd):'';
+
+  // Empfehlung
+  const rec=(!isLand&&!isCmd&&cd)?getRecommendation(c,cd,categoryCounters):null;
+  const recHtml=rec
+    ?`<span class="rec-badge" style="background:${rec.bg};color:${rec.color}" title="${rec.reason}">${rec.tag}</span>`
+    :'';
+
+  const safeName=c.name.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+  return `<li class="card-item" onclick="showCard('${safeName}')">
+    ${img?`<img class="card-thumb" src="${img}" alt="${c.name}" loading="lazy">`:`<div class="card-thumb-placeholder">?</div>`}
+    <div class="card-info">
+      <div class="card-name">${isCmd?'⚔ ':''}${c.qty>1?c.qty+'x ':''}<span>${cd?.name||c.name}</span></div>
+      <div class="card-sub">
+        ${mana}
+        ${isLand?'<span class="badge badge-land">Land</span>'
+          :isCmd?'<span class="badge badge-cmd">Commander</span>'
+          :`<span class="badge">${typeLabel}</span>`}
+        ${synHtml}
+        ${price?`<span style="color:var(--color-text-secondary,var(--text3))">${price}</span>`:''}
+        ${recHtml}
+      </div>
+    </div>
+  </li>`;
+}
+
+function renderCards(){
+  const container=document.getElementById('tp-cards');
+  if(!container) return;
+
+  // Synergie-Score für Sortierung: EDHREC-Wert > guessRelevance > Länder/Commander ans Ende
+  function getSortScore(c){
+    const cd=getCard(c.name);
+    if(!cd) return -999;
+    const name=(cd.name||c.name).toLowerCase();
+    const isLand=getType(cd).includes('Land');
+    const isCmd=name===commanderName;
+    if(isCmd) return 1000;  // Commander immer oben
+    if(isLand) return -500; // Länder immer unten
+    const s=synergies[name];
+    if(s&&s.synergy!==null&&s.synergy!==undefined) return s.synergy; // EDHREC %
+    // Fallback: guessRelevance → up=30, mid=10, down=-10
+    const rel=guessRelevance(cd);
+    return rel==='up'?30:rel==='mid'?10:-10;
+  }
+  const sorted=[...deck].sort((a,b)=>getSortScore(b)-getSortScore(a));
+
+  // not-found Banner
+  const nf=notFound.length
+    ?`<div class="not-found">Nicht erkannt (${notFound.length}): ${notFound.join(', ')}</div>`:'';
+
+  // Synergie-Status (wird von analyzeSynergies gesetzt/entfernt, hier nur erhalten)
+  const existingStatus=container.querySelector('#syn-status');
+  const statusHtml=existingStatus?existingStatus.outerHTML:'';
+
+  // categoryCounters: zählt wie viele Keep-Karten pro Kategorie bereits vergeben
+  // wird über alle Karten weitergegeben damit Ratio-Logik greift
+  const categoryCounters={};
+  container.innerHTML=statusHtml+nf+`<ul class="card-list">${sorted.map(c=>buildCardLi(c,categoryCounters)).join('')}</ul>`;
+}
+
+// ─── EDHREC SYNERGY (echte Daten) ────────────────────────────────────────────
+function toEdhrecSlug(name){
+  return name.toLowerCase()
+    .replace(/[^a-z0-9\s-]/g,'')
+    .trim().replace(/\s+/g,'-');
+}
+
+// Kategorie aus EDHREC cardlist-Abschnitt ableiten
+function edhrecSectionToCategory(section){
+  const s=(section||'').toLowerCase();
+  if(s.includes('ramp'))         return 'Ramp';
+  if(s.includes('draw'))         return 'Draw';
+  if(s.includes('removal'))      return 'Removal';
+  if(s.includes('wipe')||s.includes('board')) return 'Boardwipe';
+  if(s.includes('tutor'))        return 'Tutor';
+  if(s.includes('protection'))   return 'Protection';
+  if(s.includes('counter'))      return 'Counters';
+  if(s.includes('token'))        return 'Tokens';
+  if(s.includes('proliferate'))  return 'Proliferate';
+  if(s.includes('land'))         return 'Lands';
+  if(s.includes('combo'))        return 'Combo';
+  if(s.includes('recursion')||s.includes('recur')) return 'Recursion';
+  if(s.includes('wincon')||s.includes('win con')) return 'Wincon';
+  return 'Staple';
+}
+
+async function analyzeSynergies(){
+  synergies={};
+  if(!commanderName) return;
+
+  // Status zeigen
+  const container=document.getElementById('tp-cards');
+  let statusDiv=document.getElementById('syn-status');
+  if(!statusDiv&&container){
+    statusDiv=document.createElement('div');
+    statusDiv.id='syn-status';
+    statusDiv.style.cssText='font-size:12px;color:var(--text3);padding:6px 0 10px;display:flex;align-items:center;gap:8px';
+    container.prepend(statusDiv);
+  }
+  const setStatus=t=>{const el=document.getElementById('syn-status');if(el)el.innerHTML=`<div class="dots"><span></span><span></span><span></span></div> ${t}`;};
+  setStatus('Lade EDHREC-Daten...');
+
+  // Commander-Name für EDHREC-Slug: echter Scryfall-Name
+  const cmd=deck.find(c=>isCommander(getCard(c.name)));
+  const cd=cmd?getCard(cmd.name):null;
+  const realName=cd?.name||commanderName;
+  const slug=toEdhrecSlug(realName);
+
+  try{
+    const r=await fetch(`https://json.edhrec.com/pages/commanders/${slug}.json`,{
+      headers:{'Accept':'application/json'}
+    });
+    if(!r.ok) throw new Error(`EDHREC: ${r.status}`);
+    const data=await r.json();
+
+    // Alle cardlists durchgehen und Karten mit Synergy-Daten extrahieren
+    const cardlists=data?.container?.json_dict?.cardlists||[];
+    cardlists.forEach(list=>{
+      const section=list.header||list.tag||'';
+      const category=edhrecSectionToCategory(section);
+      (list.cardviews||[]).forEach(cv=>{
+        const name=(cv.name||cv.sanitized||'').toLowerCase();
+        if(!name) return;
+        // EDHREC gibt synergy als Dezimalzahl (z.B. 0.14 = 14%)
+        const synPct=Math.round((cv.synergy??0)*100);
+        const inclPct=Math.round((cv.inclusion??cv.num_decks??0)*(cv.inclusion<1?100:1));
+        synergies[name]={
+          category,
+          synergy: synPct,
+          inclusion: inclPct,
+          reason: ''
+        };
+      });
+    });
+
+    const matched=Object.keys(synergies).length;
+    setStatus(`EDHREC: ${matched} Karten geladen — matche mit Deck...`);
+    await sleep(300);
+
+  }catch(err){
+    console.warn('EDHREC fetch failed:',err.message);
+    setStatus('EDHREC nicht verfügbar — überspringe Synergien');
+    await sleep(1000);
+  }
+
+  const el=document.getElementById('syn-status');
+  if(el) el.remove();
+  renderCards();
+}
+
+// ─── SYNERGY LABELS FÜR VORSCHLÄGE ───────────────────────────────────────────
+async function fetchSynergyLabelsForSuggestions(results){
+  const cmd=deck.find(c=>isCommander(getCard(c.name)));
+  const cmdName=cmd?(getCard(cmd.name)?.name||cmd.name):'unbekannt';
+  const toLabel=results.map(c=>({name:c.name,oracle:(c.oracle_text||(c.card_faces&&c.card_faces[0].oracle_text)||'').slice(0,80)}));
+
+  const prompt=`Du bist MTG-Experte. Commander: ${cmdName}.
+
+Für jede der folgenden Karten: vergib eine Kategorie und erkläre in max 6 Wörtern warum sie gut passt.
+Erlaubte Kategorien: Ramp, Draw, Removal, Interaction, Protection, Tutor, Wincon, Boardwipe, Recursion, Combo, Counters, Tokens, Proliferate, Lands, Staple
+
+Antworte NUR mit JSON-Array (kein Text, keine Backticks), exakt so viele Einträge wie Karten:
+[{"category":"Kategorie","synergy":0-100,"reason":"Kurzer Grund"}]
+
+Karten (in dieser Reihenfolge):
+${toLabel.map(c=>`${c.name}: ${c.oracle}`).join('\n')}`;
+
+  try{
+    const d=await callClaude([{role:'user',content:prompt}],1000);
+    let txt=d.content?.map(b=>b.text||'').join('')||'[]';
+    txt=txt.replace(/```json|```/g,'').trim();
+    return JSON.parse(txt);
+  }catch{return results.map(()=>({label:'',reason:''}));}
+}
+
+// ─── ADD TO DECK ──────────────────────────────────────────────────────────────
+function addToDeck(name,btn){
+  const textarea=document.getElementById('deck');
+  const current=textarea.value.trimEnd();
+  textarea.value=current+'\n1 '+name;
+  btn.textContent='✓ Im Deck';
+  btn.classList.add('added');
+  btn.disabled=true;
+  // Deck-Counter aktualisieren
+  deck=parse(textarea.value);
+  const total=deck.reduce((s,c)=>s+c.qty,0);
+  const statV=document.querySelectorAll('.stat-v');
+  if(statV[0])statV[0].textContent=total;
+}
+
+// ─── SYNERGY SEARCH ───────────────────────────────────────────────────────────
+async function loadSynergy(){
+  const el=document.getElementById('synergyEl');
+  if(!deck.length){el.innerHTML='<div class="empty">Erst Deck analysieren.</div>';return;}
+
+  el.innerHTML=`<div style="padding:1rem;color:var(--text3);font-size:13px">Suche Synergiekarten... <div class="dots"><span></span><span></span><span></span></div></div>`;
+
+  const ci=cmdColorId.length?cmdColorId.join(''):[...document.querySelectorAll('.pip.on')].map(p=>p.dataset.c).join('');
+  const colorQ=ci?`id<=${ci}`:'';
+  const typeQ=document.getElementById('synType').value||'';
+  const budgetQ=document.getElementById('synBudget').value||'';
+  const sortBy=document.getElementById('synSort').value||'edhrec';
+  const formatQ='f:commander';
+
+  const parts=[formatQ,colorQ,typeQ,budgetQ].filter(Boolean);
+  const q=parts.join(' ')+' -is:extra';
+  const url=`https://api.scryfall.com/cards/search?q=${encodeURIComponent(q)}&order=${sortBy}&unique=cards&page=1`;
+
+  try{
+    const r=await fetch(url,{headers:{'Accept':'application/json','User-Agent':'MTGDeckOptimizer/3.0'}});
+    if(!r.ok)throw new Error('Keine Ergebnisse');
+    const d=await r.json();
+    const results=(d.data||[]).slice(0,24);
+
+    if(!results.length){el.innerHTML='<div class="empty">Keine Karten gefunden. Filter anpassen.</div>';return;}
+
+    // Synergie-Labels für Vorschläge via AI holen
+    const synLabels=await fetchSynergyLabelsForSuggestions(results);
+    // Store für Modal-Zugriff
+    results.forEach(c=>{ synCardStore[c.name]=c; });
+
+    let html='<div class="synergy-cards">';
+    results.forEach((c,i)=>{
+      const img=getImgUrl(c,'small');
+      const price=c.prices?.usd?`$${c.prices.usd}`:(c.prices?.eur?`€${c.prices.eur}`:'');
+      const sl=synLabels[i]||{category:'',reason:'',synergy:0};
+      const [tc,bg]=SYN_COLORS[sl.category]||['#444','#efefef'];
+      const pct=Math.round(sl.synergy||0);
+      const pctColor=pct>=70?'#0f6e56':pct>=40?'#854f0b':'#a32d2d';
+      const alreadyIn=deck.some(d=>d.name.toLowerCase()===c.name.toLowerCase());
+      const safeName=c.name.replace(/'/g,"\\'");
+      // Subtype für Vorschlagskarten
+      const tl=c.type_line||(c.card_faces&&c.card_faces[0].type_line)||'';
+      const subT=tl.includes(' — ')?tl.split(' — ')[1]:'';
+      const mainT=tl.split(' — ')[0].trim().split(' ').slice(-1)[0]||'';
+      html+=`<div class="syn-card">
+        <div onclick="showCardFromStore('${safeName}')" style="cursor:pointer">
+          ${img?`<img class="syn-img" src="${img}" alt="${c.name}" loading="lazy">`:`<div class="syn-img-placeholder">${c.name}</div>`}
+        </div>
+        <div class="syn-name" onclick="showCardFromStore('${safeName}')" style="cursor:pointer">${c.name}</div>
+        ${(mainT||subT)?`<div style="padding:0 7px 3px;font-size:10px;color:var(--text3)">${mainT}${subT?' · '+subT:''}</div>`:''}
+        ${sl.category?`<div class="syn-ai-label"><span style="background:${bg};color:${tc};padding:1px 5px;border-radius:3px;font-size:10px">${sl.category}</span> <span style="font-size:10px;color:${pctColor};font-weight:600">⬡ ${pct}%</span></div>`:''}
+        ${sl.reason?`<div class="syn-label">${sl.reason}</div>`:''}
+        <div class="syn-footer">
+          <span class="syn-price">${price||''}</span>
+          <button class="btn-add${alreadyIn?' added':''}" onclick="addToDeck('${safeName}',this)" ${alreadyIn?'disabled':''}>
+            ${alreadyIn?'✓ Im Deck':'+ Deck'}
+          </button>
+        </div>
+      </div>`;
+    });
+    html+='</div>';
+    el.innerHTML=html;
+  }catch(e){
+    el.innerHTML=`<div class="err" style="padding:1rem">Fehler: ${e.message}</div>`;
+  }
+}
+
+// ─── CARD MODAL ───────────────────────────────────────────────────────────────
+async function showCardFromStore(name){
+  const cd=synCardStore[name]||getCard(name);
+  if(cd) await showCardDirect(cd);
+}
+
+async function showCard(name){
+  const cd=getCard(name);
+  if(!cd)return;
+  await showCardDirect(cd);
+}
+
+async function showCardDirect(cd){
+  document.getElementById('modalBg').style.display='flex';
+  document.getElementById('modalContent').innerHTML=`<div style="padding:2rem;text-align:center"><div class="dots"><span></span><span></span><span></span></div></div>`;
+
+  const img=getImgUrl(cd,'normal');
+  const mana=renderMana(getManaCost(cd));
+  const oracle=getOracle(cd);
+  const price_usd=cd.prices?.usd;
+  const price_eur=cd.prices?.eur;
+  const price_usd_foil=cd.prices?.usd_foil;
+  const legalities=cd.legalities||{};
+
+  // Fetch rulings
+  const rulings=await fetchRulings(cd);
+
+  let pricesHtml='';
+  if(price_usd||price_eur||price_usd_foil){
+    pricesHtml=`<div class="modal-section">
+      <div class="modal-section-title">Preise</div>
+      <div class="prices">
+        ${price_usd?`<div class="price-tag"><div class="price-val">$${price_usd}</div><div class="price-lbl">USD</div></div>`:''}
+        ${price_usd_foil?`<div class="price-tag"><div class="price-val">$${price_usd_foil}</div><div class="price-lbl">USD Foil</div></div>`:''}
+        ${price_eur?`<div class="price-tag"><div class="price-val">€${price_eur}</div><div class="price-lbl">EUR</div></div>`:''}
+      </div>
+    </div>`;
+  }
+
+  let rulingsHtml='';
+  if(rulings.length){
+    const recent=rulings.slice(-5);
+    rulingsHtml=`<div class="modal-section">
+      <div class="modal-section-title">Rulings (${rulings.length})</div>
+      ${recent.map(r=>`<div class="ruling"><div class="ruling-date">${r.published_at}</div>${r.comment}</div>`).join('')}
+    </div>`;
+  }
+
+  const legStr=Object.entries(legalities).filter(([,v])=>v==='legal').map(([k])=>k).join(', ');
+  const setName=cd.set_name||cd.set?.toUpperCase()||'';
+  const collNum=cd.collector_number||'';
+  const setIconUri=cd.set_uri||null;
+
+  document.getElementById('modalContent').innerHTML=`
+    <div class="modal-header">
+      ${img?`<img class="modal-img" src="${img}" alt="${cd.name}">`:`<div class="modal-img-placeholder">Kein Bild</div>`}
+      <div style="flex:1;min-width:0">
+        <div class="modal-card-name">${cd.name}</div>
+        <div style="margin-bottom:6px">${mana}</div>
+        <div class="modal-type">${getType(cd)}</div>
+        ${cd.power!==undefined?`<div style="font-size:13px;color:var(--text2);margin-bottom:6px">${cd.power}/${cd.toughness}</div>`:''}
+        ${cd.loyalty!==undefined?`<div style="font-size:13px;color:var(--text2);margin-bottom:6px">Loyalität: ${cd.loyalty}</div>`:''}
+        <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px">
+          ${setName?`<span class="tag">${setName} #${collNum}</span>`:''}
+          ${legalities.commander==='legal'?'<span class="tag" style="background:var(--successbg);color:var(--success)">Commander-legal</span>':'<span class="tag" style="background:var(--dangerbg);color:var(--danger)">Nicht Commander-legal</span>'}
+        </div>
+        <a href="${cd.scryfall_uri}" target="_blank" class="scryfall-link">Auf Scryfall ansehen ↗</a>
+      </div>
+    </div>
+    ${oracle?`<div class="modal-oracle">${oracle}</div>`:''}
+    ${cd.flavor_text?`<div style="font-size:13px;color:var(--text3);font-style:italic;margin-bottom:.75rem;padding:0 4px">"${cd.flavor_text}"</div>`:''}
+    ${pricesHtml}
+    ${rulingsHtml}
+    ${legStr?`<div class="modal-section"><div class="modal-section-title">Legalities</div><div style="font-size:12px;color:var(--text3)">${legStr}</div></div>`:''}
+  `;
+}
+
+function closeModal(e){ if(e.target===document.getElementById('modalBg')) closeModalDirect(); }
+function closeModalDirect(){ document.getElementById('modalBg').style.display='none'; }
+
+// ─── TABS ─────────────────────────────────────────────────────────────────────
+function st(tab){
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('on',['curve','types','cards','synergy','combos','suggest','ai'][i]===tab));
+  document.querySelectorAll('.tp').forEach(p=>p.classList.remove('on'));
+  document.getElementById('tp-'+tab).classList.add('on');
+}
+
+// ─── POT. COMBOS (Claude AI — Commander Spellbook hat CORS-Block) ─────────────
+async function loadCombos(){
+  const el=document.getElementById('combosEl');
+  if(!el||!deck.length) return;
+
+  if(!getApiKey()){
+    el.innerHTML=noKeyNotice('Combo-Analyse (Claude AI)');
+    return;
+  }
+
+  el.innerHTML=`<div style="font-size:13px;color:var(--text3);padding:8px 0;display:flex;align-items:center;gap:8px"><div class="dots"><span></span><span></span><span></span></div> Analysiere Combos mit Claude AI...</div>`;
+
+  const cmd=deck.find(c=>isCommander(getCard(c.name)));
+  const cmdName=cmd?(getCard(cmd.name)?.name||cmd.name):'unbekannt';
+  const deckNames=deck
+    .map(c=>getCard(c.name)?.name||c.name)
+    .filter(n=>n.toLowerCase()!==commanderName);
+
+  const prompt=`Du bist MTG EDH-Experte mit umfassendem Combo-Wissen. Commander: ${cmdName}.
+
+Analysiere diese Deck-Karten auf potenzielle Combos:
+${deckNames.join(', ')}
+
+Antworte NUR mit reinem JSON-Array (keine Backticks, kein Text davor/danach):
+[{
+  "status": "complete" oder "almost",
+  "cards": ["Karte1","Karte2"],
+  "missing": ["FehlendeKarte1"],
+  "result": "Was der Combo bewirkt (z.B. Infinite Mana, Infinite Tokens)",
+  "steps": "Kurze Erklärung in 1-2 Sätzen wie der Combo funktioniert"
+}]
+
+Regeln:
+- "complete" = alle Karten bereits im Deck
+- "almost" = 1-2 Karten fehlen noch (nur die fehlenden in "missing", max 2)
+- Nur echte, bekannte EDH-Combos — keine erfundenen
+- Maximal 12 Combos total
+- Wenn keine Combos existieren: leeres Array []`;
+
+  try{
+    const d=await callClaude([{role:'user',content:prompt}],2000);
+    const raw=d.content?.map(b=>b.text||'').join('')||'[]';
+    const m=raw.match(/\[[\s\S]*\]/);
+    const combos=m?JSON.parse(m[0]):[];
+
+    if(!combos.length){
+      el.innerHTML=`<div class="empty">Keine bekannten Combos in diesem Deck gefunden.<br><span style="font-size:12px;color:var(--text3)">Tipp: Füge klassische Combo-Pieces ein oder prüfe den Synergien-Tab für passende Karten.</span></div>`;
+      return;
+    }
+
+    const complete=combos.filter(c=>c.status==='complete');
+    const almost=combos.filter(c=>c.status==='almost');
+    let html='';
+
+    if(complete.length){
+      html+=`<div class="combo-section-header">✓ ${complete.length} komplette${complete.length===1?' Combo':' Combos'} im Deck</div>`;
+      complete.forEach(combo=>{
+        html+=`<div class="combo-card combo-complete">
+          <div class="combo-header">
+            <span class="combo-status-dot" style="background:var(--success)"></span>
+            <span class="combo-title">${combo.result||'Infinite Combo'}</span>
+          </div>
+          <div class="combo-cards-row">
+            ${(combo.cards||[]).map(n=>`<span class="combo-pill combo-pill-in">${n}</span>`).join('')}
+          </div>
+          ${combo.steps?`<div class="combo-prereq">${combo.steps}</div>`:''}
+        </div>`;
+      });
+    }
+
+    if(almost.length){
+      html+=`<div class="combo-section-header" style="margin-top:14px">⬡ ${almost.length} fast-komplett${almost.length===1?' (1-2 Karten fehlen)':'e (je 1-2 Karten fehlen)'}</div>`;
+      almost.forEach(combo=>{
+        html+=`<div class="combo-card combo-almost">
+          <div class="combo-header">
+            <span class="combo-status-dot" style="background:var(--warn)"></span>
+            <span class="combo-title">${combo.result||'Combo'}</span>
+          </div>
+          <div class="combo-cards-row">
+            ${(combo.cards||[]).map(n=>`<span class="combo-pill combo-pill-in">${n}</span>`).join('')}
+            ${(combo.missing||[]).map(n=>`<span class="combo-pill combo-pill-miss" title="Zum Deck hinzufügen" onclick="addToDeck('${n.replace(/'/g,"\\'")}',this)">+ ${n}</span>`).join('')}
+          </div>
+          ${combo.steps?`<div class="combo-prereq">${combo.steps}</div>`:''}
+        </div>`;
+      });
+    }
+
+    el.innerHTML=html;
+  }catch(err){
+    if(err.message==='NO_API_KEY'){el.innerHTML=noKeyNotice('Combo-Analyse (Claude AI)');return;}
+    el.innerHTML=`<div class="err" style="padding:1rem">Fehler: ${err.message}<br><span style="font-size:12px;color:var(--text3)">Hinweis: Combo-Analyse benötigt eine aktive Verbindung.</span></div>`;
+  }
+}
+
+// ─── VORSCHLÄGE (AI: Cut + Add) ───────────────────────────────────────────────
+async function runSuggest(){
+  if(!getApiKey()){
+    document.getElementById('suggestEl').innerHTML=noKeyNotice('Vorschläge (Claude AI)');
+    return;
+  }
+  document.getElementById('suggestBtn').style.display='none';
+  const el=document.getElementById('suggestEl');
+  el.innerHTML=`<div style="font-size:13px;color:var(--text3);margin-bottom:8px">Claude erstellt Vorschläge...</div><div class="dots"><span></span><span></span><span></span></div>`;
+
+  const cmd=deck.find(c=>isCommander(getCard(c.name)));
+  const cmdName=cmd?(getCard(cmd.name)?.name||cmd.name):'unbekannt';
+  const total=deck.reduce((s,c)=>s+c.qty,0);
+
+  // Cut-Kandidaten: alle Karten mit rec=Cut oder rec=Maybe sortiert nach Score
+  const cutCandidates=[];
+  const keepCards=[];
+  const catC={};
+  deck.forEach(c=>{
+    const cd=getCard(c.name);
+    if(!cd) return;
+    if(getType(cd).includes('Land')||(cd.name||'').toLowerCase()===commanderName) return;
+    const rec=getRecommendation(c,cd,catC);
+    if(rec?.tag==='Cut') cutCandidates.push({name:cd.name,reason:rec.reason,synergy:synergies[cd.name?.toLowerCase()]?.synergy??null});
+    else if(rec?.tag==='Keep') keepCards.push(cd.name);
+  });
+
+  const needToCut=Math.max(0,total-100);
+  const deckSummary=keepCards.slice(0,20).join(', ');
+  const cutList=cutCandidates.slice(0,20).map((c,i)=>`${i+1}. ${c.name}${c.synergy!==null?' (EDHREC: '+(c.synergy>0?'+':'')+Math.round(c.synergy)+'%)':''} — ${c.reason}`).join('\n');
+  const ci=cmdColorId.join('')||'?';
+
+  const prompt=`Du bist MTG Commander-Experte. Analysiere dieses Deck und gib konkrete Deckbau-Vorschläge.
+
+Commander: ${cmdName} (Farbidentität: ${ci})
+Karten total: ${total} (Ziel: 100, muss ${needToCut>0?needToCut+' Karten cutten':'auf 100 kommen'})
+
+Bereits als Keep markierte Karten (behalte diese): ${deckSummary}
+
+Cut-Kandidaten (schwache Synergie oder Ratio-Überschuss):
+${cutList||'(keine klaren Cuts erkannt)'}
+
+Gib folgende Ausgabe auf Deutsch, OHNE Markdown-Backticks, als strukturierten Text:
+
+CUTTE DIESE KARTEN:
+(Liste exakt ${Math.max(needToCut,5)} Karten mit Nummer und Kurzgründung, wähle aus den Cut-Kandidaten)
+1. Kartenname — Grund
+
+FÜGE DIESE KARTEN HINZU:
+(Liste 8-10 Karten die zum Commander passen und noch nicht im Deck sind, mit Scryfall-bekannten Namen)
+1. Kartenname — Grund warum diese Karte gut zum Deck passt
+
+FAZIT:
+(2-3 Sätze über die Deck-Strategie nach den Änderungen)`;
+
+  try{
+    const d=await callClaude([{role:'user',content:prompt}],1500);
+    const txt=d.content?.map(b=>b.text||'').join('')||'';
+
+    // Strukturiert parsen und rendern
+    const sections=txt.split(/\n(?=CUTTE|FÜGE|FAZIT)/);
+    let html='';
+    sections.forEach(sec=>{
+      sec=sec.trim();
+      if(!sec) return;
+      const isAdd=sec.startsWith('FÜGE');
+      const isCut=sec.startsWith('CUTTE');
+      const isFazit=sec.startsWith('FAZIT');
+      const [header,...lines]=sec.split('\n');
+      const color=isAdd?'var(--success)':isCut?'var(--danger)':'var(--text2)';
+      const bg=isAdd?'var(--successbg)':isCut?'var(--dangerbg)':'var(--bg2)';
+      const icon=isAdd?'＋':isCut?'✂':'💡';
+
+      if(isFazit){
+        html+=`<div class="suggest-section" style="background:${bg}">
+          <div class="suggest-header" style="color:${color}">${icon} ${header}</div>
+          <div style="font-size:14px;line-height:1.7;color:var(--text)">${lines.join(' ').trim()}</div>
+        </div>`;
+        return;
+      }
+
+      html+=`<div class="suggest-section" style="background:${bg}">
+        <div class="suggest-header" style="color:${color}">${icon} ${header}</div>
+        <ol class="suggest-list">`;
+      lines.forEach(line=>{
+        line=line.trim();
+        if(!line||!line.match(/^\d+\./)) return;
+        const content=line.replace(/^\d+\.\s*/,'');
+        const [cardName,...rest]=content.split('—');
+        const reason=rest.join('—').trim();
+        const safeName=(cardName||'').trim().replace(/'/g,"\\'");
+        html+=`<li class="suggest-item">
+          <span class="suggest-card-name">${(cardName||'').trim()}</span>
+          ${isAdd?`<button class="btn-add" onclick="addToDeck('${safeName}',this)" style="margin-left:6px">+ Deck</button>`:''}
+          ${reason?`<span class="suggest-reason"> — ${reason}</span>`:''}
+        </li>`;
+      });
+      html+=`</ol></div>`;
+    });
+
+    el.innerHTML=html||`<div class="ai-text">${txt}</div>`;
+    document.getElementById('suggestBtn').style.display='flex';
+    document.getElementById('suggestBtn').textContent='Neue Vorschläge ↗';
+  }catch(err){
+    if(err.message==='NO_API_KEY'){el.innerHTML=noKeyNotice('Vorschläge (Claude AI)');document.getElementById('suggestBtn').style.display='flex';return;}
+    el.innerHTML=`<div class="err" style="padding:.5rem">Fehler: ${err.message}</div>`;
+    document.getElementById('suggestBtn').style.display='flex';
+  }
+}
+
+// ─── AI ANALYSE ───────────────────────────────────────────────────────────────
+async function runAI(){
+  if(!getApiKey()){
+    document.getElementById('aiEl').innerHTML=noKeyNotice('AI Deck-Analyse (Claude)');
+    return;
+  }
+  document.getElementById('aiBtn').style.display='none';
+  document.getElementById('aiEl').innerHTML=`<div style="font-size:13px;color:var(--text3);margin-bottom:8px">Claude analysiert dein Deck...</div><div class="dots"><span></span><span></span><span></span></div>`;
+
+  const cmd=deck.find(c=>isCommander(getCard(c.name)));
+  const cmdName=cmd?(getCard(cmd.name)?.name||cmd.name):'unbekannt';
+  const total=deck.reduce((s,c)=>s+c.qty,0);
+  const lands=deck.filter(c=>getCard(c.name)&&getType(getCard(c.name)).includes('Land')).reduce((s,c)=>s+c.qty,0);
+  const ci=cmdColorId.join('')||'?';
+
+  const summary=deck.slice(0,80).map(c=>{
+    const cd=getCard(c.name);
+    if(!cd)return `${c.qty}x ${c.name} (unbekannt)`;
+    return `${c.qty}x ${cd.name} [${getType(cd).split(' — ')[0]}] CMC:${getCmc(cd)} | ${getOracle(cd).slice(0,90)}`;
+  }).join('\n');
+
+  const prompt=`Du bist ein erfahrener MTG Commander-Spieler. Analysiere dieses Deck:\n\nCommander: ${cmdName} (Farbidentität: ${ci})\nKarten: ${total} total, ${lands} Länder\n\n${summary}\n\nGib eine strukturierte Analyse auf Deutsch:\n\n1. **Deck-Strategie** (Was ist die Hauptstrategie/Win-Con? 2-3 Sätze)\n2. **Stärken** (3 konkrete Punkte mit Kartennamen)\n3. **Schwächen & Probleme** (3 konkrete Punkte)\n4. **Top 5 Kartenvorschläge** (Kartenname + kurze Begründung)\n5. **Manabase** (${lands} Länder ok? Ramp-Situation?)\n\nKonkret, direkt, keine Floskeln.`;
+
+  try{
+    const d=await callClaude([{role:'user',content:prompt}],1000);
+    const txt=d.content?.map(b=>b.text||'').join('')||'Keine Antwort.';
+    const html=txt
+      .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+      .replace(/\n\n/g,'</p><p>')
+      .replace(/\n[-•] /g,'<br>• ')
+      .replace(/\n(\d+)\. /g,'<br>$1. ');
+    document.getElementById('aiEl').innerHTML=`<div class="ai-text"><p>${html}</p></div><button class="btn btn-block" onclick="runAI()" style="margin-top:1rem">Neue Analyse ↗</button>`;
+  }catch(e){
+    if(e.message==='NO_API_KEY'){document.getElementById('aiEl').innerHTML=noKeyNotice('AI Deck-Analyse (Claude)');return;}
+    document.getElementById('aiEl').innerHTML=`<div class="err" style="padding:.5rem">Fehler: ${e.message}</div><button class="btn btn-block" onclick="runAI()" style="margin-top:.5rem">Nochmal ↗</button>`;
+  }
+}
+
+// ─── DEMO DECK ─────────────────────────────────────────────────────────────────
+document.getElementById('deck').value=`Atraxa, Praetors' Voice
+1 Sol Ring
+1 Command Tower
+1 Arcane Signet
+1 Fellwar Stone
+1 Cultivate
+1 Kodama's Reach
+1 Rhystic Study
+1 Phyrexian Arena
+1 Smothering Tithe
+1 Doubling Season
+1 Aura Shards
+1 Cyclonic Rift
+1 Counterspell
+1 Swords to Plowshares
+1 Path to Exile
+1 Demonic Tutor
+1 Vampiric Tutor
+1 Brainstorm
+1 Ponder
+1 Birds of Paradise
+1 Noble Hierarch
+1 Avacyn, Angel of Hope
+1 Consecrated Sphinx
+1 Vorinclex, Monstrous Raider
+1 Thalia, Guardian of Thraben
+1 Grand Arbiter Augustin IV
+1 Deepglow Skate
+1 Crystalline Crawler
+1 Evolution Sage
+1 Inexorable Tide
+1 The Ozolith
+1 Contagion Engine
+1 Viral Drake
+1 Flux Channeler
+1 Ichneumon Druid
+1 Norn's Annex
+1 Clever Impersonator
+1 Oko, Thief of Crowns
+1 Teferi, Hero of Dominaria
+1 Jace, the Mind Sculptor
+1 Ajani, the Greathearted
+1 Liliana of the Veil
+1 Atraxa, Grand Unifier
+5 Plains
+5 Island
+5 Swamp
+5 Forest
+1 Breeding Pool
+1 Watery Grave
+1 Godless Shrine
+1 Temple Garden
+1 Overgrown Tomb
+1 Hallowed Fountain
+1 Flooded Strand
+1 Polluted Delta
+1 Windswept Heath
+1 Marsh Flats
+1 Verdant Catacombs`;
+</script>
+</body>
+</html>
